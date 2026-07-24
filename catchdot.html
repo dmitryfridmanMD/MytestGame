@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Catch the Dot</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #eef;
+    }
+
+    #game {
+      width: 320px;
+      height: 320px;
+      margin: auto;
+      background: white;
+      position: relative;
+      border: 2px solid #333;
+    }
+
+    #dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: red;
+      position: absolute;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Catch the Dot</h2>
+  <p>Score: <span id="score">0</span></p>
+
+  <div id="game">
+    <div id="dot"></div>
+  </div>
+
+  <script>
+    let score = 0;
+    const dot = document.getElementById("dot");
+    const scoreText = document.getElementById("score");
+
+    function moveDot() {
+      dot.style.left = Math.random() * 280 + "px";
+      dot.style.top = Math.random() * 280 + "px";
+    }
+
+    dot.onclick = function () {
+      score++;
+      scoreText.textContent = score;
+      moveDot();
+    };
+
+    moveDot();
+  </script>
+</body>
+</html>
