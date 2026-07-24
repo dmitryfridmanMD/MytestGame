@@ -1,30 +1,31 @@
 document.body.innerHTML = `
-  <h2>Catch the Dot</h2>
-  <p>Score: <span id="score">0</span></p>
-  <div id="game"><button id="dot"></button></div>
+  <h2>Rock, Paper, Scissors</h2>
+  <button>Rock</button>
+  <button>Paper</button>
+  <button>Scissors</button>
+  <p id="result">Choose one!</p>
 `;
 
 document.body.style.cssText =
-  "font-family:Arial;text-align:center;background:#eef";
+  "font-family:Arial;text-align:center;padding:40px";
 
-const game = document.getElementById("game");
-game.style.cssText =
-  "width:320px;height:320px;margin:auto;background:white;position:relative;border:2px solid #333";
+const choices = ["Rock", "Paper", "Scissors"];
 
-const dot = document.getElementById("dot");
-dot.style.cssText =
-  "width:40px;height:40px;border:0;border-radius:50%;background:red;position:absolute;cursor:pointer";
+document.querySelectorAll("button").forEach(button => {
+  button.addEventListener("click", () => {
+    const player = button.textContent;
+    const computer = choices[Math.floor(Math.random() * 3)];
 
-let score = 0;
+    let result = "You lose!";
 
-function moveDot() {
-  dot.style.left = Math.random() * 280 + "px";
-  dot.style.top = Math.random() * 280 + "px";
-}
+    if (player === computer) result = "Tie!";
+    if (
+      player === "Rock" && computer === "Scissors" ||
+      player === "Paper" && computer === "Rock" ||
+      player === "Scissors" && computer === "Paper"
+    ) result = "You win!";
 
-dot.onclick = () => {
-  document.getElementById("score").textContent = ++score;
-  moveDot();
-};
-
-moveDot();
+    document.getElementById("result").textContent =
+      `Computer chose ${computer}. ${result}`;
+  });
+});
