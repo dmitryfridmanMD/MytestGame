@@ -766,11 +766,13 @@
       "18px Arial, sans-serif";
 
     ctx.fillText(
-      "Press R or click Restart to play again.",
-      canvas.width / 2,
-      canvas.height / 2 + 65
-    );
-    function draw() {
+  "Press R or click Restart to play again.",
+  canvas.width / 2,
+  canvas.height / 2 + 65
+);
+  }
+
+  function draw() {
     const gradient = ctx.createLinearGradient(
       0,
       0,
