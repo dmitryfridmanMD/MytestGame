@@ -1,5 +1,3 @@
-from pathlib import Path
-import zipfile, textwrap
 
 out = Path("/mnt/data/javascript_village_game")
 out.mkdir(exist_ok=True)
