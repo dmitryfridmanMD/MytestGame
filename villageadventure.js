@@ -1,39 +1,27 @@
-
-out = Path("/mnt/data/javascript_village_game")
-out.mkdir(exist_ok=True)
-
-index_html = """<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>JavaScript Village</title>
-</head>
-<body>
-  <script src="game.js"></script>
-</body>
-</html>
-"""
-
-game_js = r"""
 (() => {
   "use strict";
 
-  // -----------------------------
-  // Page setup — created in JavaScript
-  // -----------------------------
-  document.title = "JavaScript Village";
+  document.title = "Village Adventure";
 
+  // -----------------------------
+  // Styling
+  // -----------------------------
   const style = document.createElement("style");
+
   style.textContent = `
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
       min-height: 100vh;
       font-family: Arial, Helvetica, sans-serif;
       color: #1f2a22;
-      background: linear-gradient(#9ed7ff 0 38%, #7fcf6a 38% 100%);
+      background: linear-gradient(
+        #9ed7ff 0 38%,
+        #7fcf6a 38% 100%
+      );
       overflow-x: hidden;
     }
 
@@ -55,8 +43,8 @@ game_js = r"""
       flex-wrap: wrap;
       margin-bottom: 14px;
       padding: 12px 14px;
-      background: rgba(255,255,255,.9);
-      border: 2px solid rgba(31,42,34,.15);
+      background: rgba(255, 255, 255, 0.9);
+      border: 2px solid rgba(31, 42, 34, 0.15);
       border-radius: 16px;
     }
 
@@ -89,14 +77,26 @@ game_js = r"""
       position: relative;
       min-height: 620px;
       overflow: hidden;
-      border: 4px solid rgba(61,77,51,.5);
+      border: 4px solid rgba(61, 77, 51, 0.5);
       border-radius: 24px;
       background:
-        radial-gradient(circle at 12% 20%, #6dbd54 0 5%, transparent 5.4%),
-        radial-gradient(circle at 80% 17%, #5dad49 0 6%, transparent 6.5%),
-        radial-gradient(circle at 88% 72%, #5dad49 0 5%, transparent 5.4%),
+        radial-gradient(
+          circle at 12% 20%,
+          #6dbd54 0 5%,
+          transparent 5.4%
+        ),
+        radial-gradient(
+          circle at 80% 17%,
+          #5dad49 0 6%,
+          transparent 6.5%
+        ),
+        radial-gradient(
+          circle at 88% 72%,
+          #5dad49 0 5%,
+          transparent 5.4%
+        ),
         linear-gradient(#7dcc68, #6dbd54);
-      box-shadow: inset 0 0 70px rgba(41,86,34,.18);
+      box-shadow: inset 0 0 70px rgba(41, 86, 34, 0.18);
     }
 
     .road {
@@ -107,8 +107,8 @@ game_js = r"""
       height: 120%;
       transform: translateX(-50%) rotate(7deg);
       background: #d9c190;
-      border-left: 4px solid rgba(135,104,61,.35);
-      border-right: 4px solid rgba(135,104,61,.35);
+      border-left: 4px solid rgba(135, 104, 61, 0.35);
+      border-right: 4px solid rgba(135, 104, 61, 0.35);
     }
 
     .river {
@@ -119,8 +119,8 @@ game_js = r"""
       height: 92px;
       transform: rotate(-5deg);
       background: linear-gradient(#5dc8f2, #359bd5);
-      border-top: 5px solid rgba(255,255,255,.35);
-      border-bottom: 5px solid rgba(21,90,134,.28);
+      border-top: 5px solid rgba(255, 255, 255, 0.35);
+      border-bottom: 5px solid rgba(21, 90, 134, 0.28);
     }
 
     .bridge {
@@ -145,12 +145,14 @@ game_js = r"""
       min-width: 115px;
       min-height: 90px;
       padding: 12px;
-      border: 3px solid rgba(55,49,35,.65);
+      border: 3px solid rgba(55, 49, 35, 0.65);
       border-radius: 18px;
       background: #f6e2b7;
       cursor: pointer;
-      box-shadow: 0 7px 0 rgba(73,59,35,.18);
-      transition: transform .14s ease, filter .14s ease;
+      box-shadow: 0 7px 0 rgba(73, 59, 35, 0.18);
+      transition:
+        transform 0.14s ease,
+        filter 0.14s ease;
       text-align: center;
       font-weight: 700;
       z-index: 4;
@@ -160,7 +162,7 @@ game_js = r"""
     .place:focus-visible {
       transform: translateY(-4px) scale(1.03);
       filter: brightness(1.04);
-      outline: 4px solid rgba(255,255,255,.8);
+      outline: 4px solid rgba(255, 255, 255, 0.8);
     }
 
     .place .icon {
@@ -169,12 +171,41 @@ game_js = r"""
       margin-bottom: 5px;
     }
 
-    .house { left: 7%; top: 15%; }
-    .shop { right: 8%; top: 16%; background: #ffe3dc; }
-    .well { left: 40%; top: 36%; background: #d8eff5; }
-    .forest { right: 7%; top: 44%; background: #cce7ba; }
-    .farm { left: 7%; top: 51%; background: #f5ddb2; }
-    .cave { right: 15%; bottom: 7%; background: #c7c0b7; }
+    .house {
+      left: 7%;
+      top: 15%;
+    }
+
+    .shop {
+      right: 8%;
+      top: 16%;
+      background: #ffe3dc;
+    }
+
+    .well {
+      left: 40%;
+      top: 36%;
+      background: #d8eff5;
+    }
+
+    .forest {
+      right: 7%;
+      top: 44%;
+      background: #cce7ba;
+    }
+
+    .farm {
+      left: 7%;
+      top: 51%;
+      background: #f5ddb2;
+    }
+
+    .cave {
+      right: 15%;
+      bottom: 7%;
+      background: #c7c0b7;
+    }
+
     .chest {
       left: 39%;
       bottom: 6%;
@@ -192,12 +223,14 @@ game_js = r"""
       display: grid;
       place-items: center;
       border-radius: 50%;
-      background: #fff;
+      background: white;
       border: 4px solid #415243;
       font-size: 34px;
       z-index: 10;
-      transition: left .4s ease, top .4s ease;
-      box-shadow: 0 6px 0 rgba(0,0,0,.15);
+      transition:
+        left 0.4s ease,
+        top 0.4s ease;
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
       pointer-events: none;
     }
 
@@ -209,8 +242,8 @@ game_js = r"""
 
     .panel {
       padding: 14px;
-      background: rgba(255,255,255,.93);
-      border: 2px solid rgba(31,42,34,.15);
+      background: rgba(255, 255, 255, 0.93);
+      border: 2px solid rgba(31, 42, 34, 0.15);
       border-radius: 16px;
     }
 
@@ -255,7 +288,7 @@ game_js = r"""
     .action-button:hover,
     .action-button:focus-visible {
       background: #294732;
-      outline: 3px solid rgba(57,92,66,.25);
+      outline: 3px solid rgba(57, 92, 66, 0.25);
     }
 
     .restart {
@@ -269,42 +302,78 @@ game_js = r"""
       cursor: pointer;
     }
 
-    .hint {
-      margin: 0;
-      font-size: 14px;
-      color: #526056;
-    }
-
     @media (max-width: 820px) {
-      .layout { grid-template-columns: 1fr; }
-      .world { min-height: 580px; }
-      .sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .sidebar .panel:first-child { grid-column: 1 / -1; }
-      .restart { grid-column: 1 / -1; }
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .world {
+        min-height: 580px;
+      }
+
+      .sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .sidebar .panel:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .restart {
+        grid-column: 1 / -1;
+      }
     }
 
     @media (max-width: 540px) {
-      .game-shell { padding: 8px; }
-      .world { min-height: 540px; }
+      .game-shell {
+        padding: 8px;
+      }
+
+      .world {
+        min-height: 540px;
+      }
+
       .place {
         min-width: 92px;
         min-height: 76px;
         padding: 8px;
         font-size: 13px;
       }
-      .place .icon { font-size: 30px; }
-      .sidebar { grid-template-columns: 1fr; }
-      .sidebar .panel:first-child { grid-column: auto; }
-      .house { left: 3%; }
-      .shop { right: 3%; }
-      .forest { right: 2%; }
-      .farm { left: 2%; }
+
+      .place .icon {
+        font-size: 30px;
+      }
+
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar .panel:first-child {
+        grid-column: auto;
+      }
+
+      .house {
+        left: 3%;
+      }
+
+      .shop {
+        right: 3%;
+      }
+
+      .forest {
+        right: 2%;
+      }
+
+      .farm {
+        left: 2%;
+      }
     }
   `;
+
   document.head.appendChild(style);
 
   // -----------------------------
-  // Game data
+  // Game state
   // -----------------------------
   const state = {
     coins: 5,
@@ -324,17 +393,66 @@ game_js = r"""
   };
 
   const locations = [
-    { id: "house", label: "Mayor's House", icon: "🏠", className: "house", x: "13%", y: "25%" },
-    { id: "shop", label: "Village Shop", icon: "🏪", className: "shop", x: "77%", y: "25%" },
-    { id: "well", label: "Old Well", icon: "🪣", className: "well", x: "47%", y: "43%" },
-    { id: "forest", label: "Whispering Forest", icon: "🌲", className: "forest", x: "77%", y: "52%" },
-    { id: "farm", label: "Sunny Farm", icon: "🌾", className: "farm", x: "14%", y: "58%" },
-    { id: "cave", label: "Moon Cave", icon: "🕳️", className: "cave", x: "73%", y: "79%" },
-    { id: "chest", label: "Old Chest", icon: "🧰", className: "chest", x: "45%", y: "82%" }
+    {
+      id: "house",
+      label: "Mayor's House",
+      icon: "🏠",
+      className: "house",
+      x: "13%",
+      y: "25%"
+    },
+    {
+      id: "shop",
+      label: "Village Shop",
+      icon: "🏪",
+      className: "shop",
+      x: "77%",
+      y: "25%"
+    },
+    {
+      id: "well",
+      label: "Old Well",
+      icon: "🪣",
+      className: "well",
+      x: "47%",
+      y: "43%"
+    },
+    {
+      id: "forest",
+      label: "Whispering Forest",
+      icon: "🌲",
+      className: "forest",
+      x: "77%",
+      y: "52%"
+    },
+    {
+      id: "farm",
+      label: "Sunny Farm",
+      icon: "🌾",
+      className: "farm",
+      x: "14%",
+      y: "58%"
+    },
+    {
+      id: "cave",
+      label: "Moon Cave",
+      icon: "🕳️",
+      className: "cave",
+      x: "73%",
+      y: "79%"
+    },
+    {
+      id: "chest",
+      label: "Old Chest",
+      icon: "🧰",
+      className: "chest",
+      x: "45%",
+      y: "82%"
+    }
   ];
 
   // -----------------------------
-  // Build interface in JavaScript
+  // Build the page
   // -----------------------------
   const shell = document.createElement("main");
   shell.className = "game-shell";
@@ -344,7 +462,7 @@ game_js = r"""
 
   const heading = document.createElement("h1");
   heading.className = "title";
-  heading.textContent = "JavaScript Village";
+  heading.textContent = "Village Adventure";
 
   const stats = document.createElement("div");
   stats.className = "stats";
@@ -383,11 +501,22 @@ game_js = r"""
 
   locations.forEach((location) => {
     const button = document.createElement("button");
+
     button.type = "button";
     button.className = `place ${location.className}`;
     button.dataset.location = location.id;
-    button.innerHTML = `<span class="icon" aria-hidden="true">${location.icon}</span>${location.label}`;
-    button.addEventListener("click", () => visit(location));
+
+    button.innerHTML = `
+      <span class="icon" aria-hidden="true">
+        ${location.icon}
+      </span>
+      ${location.label}
+    `;
+
+    button.addEventListener("click", () => {
+      visit(location);
+    });
+
     world.appendChild(button);
   });
 
@@ -397,61 +526,81 @@ game_js = r"""
   sidebar.className = "sidebar";
 
   const messagePanel = makePanel("Village Log");
+
   const messageBox = document.createElement("div");
   messageBox.className = "message-box";
   messageBox.setAttribute("aria-live", "polite");
+
   messagePanel.appendChild(messageBox);
 
   const inventoryPanel = makePanel("Inventory");
+
   const inventoryList = document.createElement("ul");
   inventoryList.className = "inventory-list";
+
   inventoryPanel.appendChild(inventoryList);
 
   const questPanel = makePanel("Quests");
+
   const questList = document.createElement("ul");
   questList.className = "quest-list";
+
   questPanel.appendChild(questList);
 
   const restartButton = document.createElement("button");
   restartButton.type = "button";
   restartButton.className = "restart";
   restartButton.textContent = "Restart Game";
+
   restartButton.addEventListener("click", restartGame);
 
-  sidebar.append(messagePanel, inventoryPanel, questPanel, restartButton);
+  sidebar.append(
+    messagePanel,
+    inventoryPanel,
+    questPanel,
+    restartButton
+  );
+
   layout.append(world, sidebar);
   shell.append(topbar, layout);
   document.body.appendChild(shell);
 
+  // -----------------------------
+  // Helper functions
+  // -----------------------------
   function makePanel(title) {
     const panel = document.createElement("section");
     panel.className = "panel";
-    const h2 = document.createElement("h2");
-    h2.textContent = title;
-    panel.appendChild(h2);
+
+    const panelTitle = document.createElement("h2");
+    panelTitle.textContent = title;
+
+    panel.appendChild(panelTitle);
+
     return panel;
   }
 
-  // -----------------------------
-  // Core helpers
-  // -----------------------------
   function setMessage(text, actions = []) {
     messageBox.innerHTML = "";
 
     const paragraph = document.createElement("p");
     paragraph.textContent = text;
+
     messageBox.appendChild(paragraph);
 
-    if (actions.length) {
+    if (actions.length > 0) {
       const row = document.createElement("div");
       row.className = "action-row";
 
       actions.forEach((action) => {
         const button = document.createElement("button");
+
         button.type = "button";
         button.className = "action-button";
         button.textContent = action.label;
+
         button.addEventListener("click", action.run);
+
         row.appendChild(button);
       });
 
@@ -463,11 +612,15 @@ game_js = r"""
     if (!state.inventory.includes(item)) {
       state.inventory.push(item);
     }
+
     render();
   }
 
   function removeItem(item) {
-    state.inventory = state.inventory.filter((entry) => entry !== item);
+    state.inventory = state.inventory.filter(
+      (entry) => entry !== item
+    );
+
     render();
   }
 
@@ -479,11 +632,15 @@ game_js = r"""
     if (!state.quests.includes(quest)) {
       state.quests.push(quest);
     }
+
     render();
   }
 
   function completeQuest(quest) {
-    state.quests = state.quests.filter((entry) => entry !== quest);
+    state.quests = state.quests.filter(
+      (entry) => entry !== quest
+    );
+
     render();
   }
 
@@ -503,36 +660,42 @@ game_js = r"""
     statusStat.textContent = `⭐ Adventures: ${completed}/3`;
 
     inventoryList.innerHTML = "";
-    if (!state.inventory.length) {
+
+    if (state.inventory.length === 0) {
       const empty = document.createElement("li");
       empty.className = "empty";
       empty.textContent = "Your bag is empty.";
+
       inventoryList.appendChild(empty);
     } else {
       state.inventory.forEach((item) => {
-        const li = document.createElement("li");
-        li.textContent = item;
-        inventoryList.appendChild(li);
+        const listItem = document.createElement("li");
+        listItem.textContent = item;
+
+        inventoryList.appendChild(listItem);
       });
     }
 
     questList.innerHTML = "";
-    if (!state.quests.length) {
+
+    if (state.quests.length === 0) {
       const empty = document.createElement("li");
       empty.className = "empty";
       empty.textContent = "No active quests.";
+
       questList.appendChild(empty);
     } else {
       state.quests.forEach((quest) => {
-        const li = document.createElement("li");
-        li.textContent = quest;
-        questList.appendChild(li);
+        const listItem = document.createElement("li");
+        listItem.textContent = quest;
+
+        questList.appendChild(listItem);
       });
     }
   }
 
   // -----------------------------
-  // Location interactions
+  // Village interactions
   // -----------------------------
   function visit(location) {
     movePlayer(location);
@@ -553,6 +716,7 @@ game_js = r"""
   function visitHouse() {
     if (!state.flags.metMayor) {
       state.flags.metMayor = true;
+
       setMessage(
         "Mayor Rowan welcomes you. The farm's water barrel is empty, and the crops are beginning to wilt.",
         [
@@ -560,197 +724,320 @@ game_js = r"""
             label: "Accept water quest",
             run: () => {
               state.flags.tookWaterQuest = true;
-              addQuest("Bring a bucket of water to the farm");
+
+              addQuest(
+                "Bring a bucket of water to the farm"
+              );
+
               addItem("Empty Bucket");
-              setMessage("The mayor gives you an empty bucket. The old well is near the center of the village.");
+
+              setMessage(
+                "The mayor gives you an empty bucket. The old well is near the center of the village."
+              );
             }
           },
           {
             label: "Maybe later",
-            run: () => setMessage("Mayor Rowan nods. You can return whenever you are ready.")
+            run: () => {
+              setMessage(
+                "Mayor Rowan nods. You can return whenever you are ready."
+              );
+            }
           }
         ]
       );
+
       return;
     }
 
-    if (state.flags.filledBucket && !state.flags.deliveredWater) {
-      setMessage("You have water, but it belongs at the farm.");
+    if (
+      state.flags.filledBucket &&
+      !state.flags.deliveredWater
+    ) {
+      setMessage(
+        "You have water, but it belongs at the farm."
+      );
+
       return;
     }
 
     if (state.flags.deliveredWater) {
-      setMessage("Mayor Rowan thanks you again. The village crops are thriving.");
+      setMessage(
+        "Mayor Rowan thanks you again. The village crops are thriving."
+      );
+
       return;
     }
 
     if (!state.flags.tookWaterQuest) {
-      setMessage("Mayor Rowan is still worried about the thirsty crops.", [
-        {
-          label: "Accept water quest",
-          run: () => {
-            state.flags.tookWaterQuest = true;
-            addQuest("Bring a bucket of water to the farm");
-            addItem("Empty Bucket");
-            setMessage("You receive an empty bucket.");
+      setMessage(
+        "Mayor Rowan is still worried about the thirsty crops.",
+        [
+          {
+            label: "Accept water quest",
+            run: () => {
+              state.flags.tookWaterQuest = true;
+
+              addQuest(
+                "Bring a bucket of water to the farm"
+              );
+
+              addItem("Empty Bucket");
+
+              setMessage(
+                "You receive an empty bucket."
+              );
+            }
           }
-        }
-      ]);
+        ]
+      );
+
       return;
     }
 
-    setMessage("Mayor Rowan says, “Fill the bucket at the old well, then take it to the farm.”");
+    setMessage(
+      'Mayor Rowan says, "Fill the bucket at the old well, then take it to the farm."'
+    );
   }
 
   function visitWell() {
     if (!hasItem("Empty Bucket")) {
-      setMessage("The well water is cool and clear, but you have nothing to carry it in.");
+      setMessage(
+        "The well water is cool and clear, but you have nothing to carry it in."
+      );
+
       return;
     }
 
     removeItem("Empty Bucket");
     addItem("Bucket of Water");
+
     state.flags.filledBucket = true;
-    setMessage("You lower the bucket into the well and pull it back up full of sparkling water.");
+
+    setMessage(
+      "You lower the bucket into the well and pull it back up full of sparkling water."
+    );
   }
 
   function visitFarm() {
-    if (hasItem("Bucket of Water") && !state.flags.deliveredWater) {
+    if (
+      hasItem("Bucket of Water") &&
+      !state.flags.deliveredWater
+    ) {
       removeItem("Bucket of Water");
+
       state.flags.deliveredWater = true;
       state.flags.filledBucket = false;
       state.coins += 10;
-      completeQuest("Bring a bucket of water to the farm");
+
+      completeQuest(
+        "Bring a bucket of water to the farm"
+      );
+
       render();
-      setMessage("Farmer Mira pours the water into the crop barrel and rewards you with 10 coins.");
+
+      setMessage(
+        "Farmer Mira pours the water into the crop barrel and rewards you with 10 coins."
+      );
+
       return;
     }
 
     if (state.flags.deliveredWater) {
-      setMessage("The farm is green again. Farmer Mira waves happily.");
+      setMessage(
+        "The farm is green again. Farmer Mira waves happily."
+      );
+
       return;
     }
 
-    setMessage("The crops look dry. A wooden barrel beside the field is completely empty.");
+    setMessage(
+      "The crops look dry. A wooden barrel beside the field is completely empty."
+    );
   }
 
   function visitForest() {
     if (!state.flags.foundHerbs) {
       state.flags.foundHerbs = true;
+
       addItem("Moonleaf Herbs");
-      addQuest("Sell the moonleaf herbs at the village shop");
-      setMessage("Beneath an ancient tree, you discover a bundle of rare moonleaf herbs.");
+
+      addQuest(
+        "Sell the moonleaf herbs at the village shop"
+      );
+
+      setMessage(
+        "Beneath an ancient tree, you discover a bundle of rare moonleaf herbs."
+      );
+
       return;
     }
 
     if (!state.flags.soldHerbs) {
-      setMessage("The forest whispers in the wind. You already collected the rare herbs.");
+      setMessage(
+        "The forest whispers in the wind. You already collected the rare herbs."
+      );
+
       return;
     }
 
-    setMessage("You hear birds singing among the trees. Nothing unusual appears today.");
+    setMessage(
+      "You hear birds singing among the trees. Nothing unusual appears today."
+    );
   }
 
   function visitShop() {
-    if (hasItem("Moonleaf Herbs") && !state.flags.soldHerbs) {
-      setMessage("Shopkeeper Tavi's eyes widen when he sees the moonleaf herbs.", [
-        {
-          label: "Sell herbs for 15 coins",
-          run: () => {
-            removeItem("Moonleaf Herbs");
-            state.flags.soldHerbs = true;
-            state.coins += 15;
-            completeQuest("Sell the moonleaf herbs at the village shop");
-            render();
-            setMessage("Tavi pays you 15 coins and gives you a small cave key as a bonus.");
-            addItem("Moon Cave Key");
-            state.flags.caveUnlocked = true;
+    if (
+      hasItem("Moonleaf Herbs") &&
+      !state.flags.soldHerbs
+    ) {
+      setMessage(
+        "Shopkeeper Tavi's eyes widen when he sees the moonleaf herbs.",
+        [
+          {
+            label: "Sell herbs for 15 coins",
+            run: () => {
+              removeItem("Moonleaf Herbs");
+
+              state.flags.soldHerbs = true;
+              state.coins += 15;
+
+              completeQuest(
+                "Sell the moonleaf herbs at the village shop"
+              );
+
+              addItem("Moon Cave Key");
+              state.flags.caveUnlocked = true;
+
+              render();
+
+              setMessage(
+                "Tavi pays you 15 coins and gives you a small cave key as a bonus."
+              );
+            }
+          },
+          {
+            label: "Keep the herbs",
+            run: () => {
+              setMessage(
+                "You decide to keep the moonleaf herbs for now."
+              );
+            }
           }
-        },
-        {
-          label: "Keep the herbs",
-          run: () => setMessage("You decide to keep the moonleaf herbs for now.")
-        }
-      ]);
+        ]
+      );
+
       return;
     }
 
     if (state.flags.soldHerbs) {
-      setMessage("Tavi has ordinary supplies today, but nothing you need for your current adventures.");
+      setMessage(
+        "Tavi has ordinary supplies today, but nothing you need for your current adventures."
+      );
+
       return;
     }
 
-    setMessage("The shop is filled with lanterns, bread, rope, and colorful bottles. Tavi mentions that rare herbs grow in the forest.");
+    setMessage(
+      "The shop is filled with lanterns, bread, rope, and colorful bottles. Tavi mentions that rare herbs grow in the forest."
+    );
   }
 
   function visitChest() {
     if (state.flags.chestOpened) {
-      setMessage("The old chest is empty.");
+      setMessage(
+        "The old chest is empty."
+      );
+
       return;
     }
 
     state.flags.chestOpened = true;
     state.coins += 7;
+
     addItem("Silver Apple");
+
     render();
-    setMessage("The rusty lock breaks open. Inside, you find 7 coins and a mysterious silver apple.");
+
+    setMessage(
+      "The rusty lock breaks open. Inside, you find 7 coins and a mysterious silver apple."
+    );
   }
 
   function visitCave() {
-    if (!state.flags.caveUnlocked && !hasItem("Moon Cave Key")) {
-      setMessage("A heavy stone door blocks the cave. Its keyhole is shaped like a crescent moon.");
+    if (
+      !state.flags.caveUnlocked &&
+      !hasItem("Moon Cave Key")
+    ) {
+      setMessage(
+        "A heavy stone door blocks the cave. Its keyhole is shaped like a crescent moon."
+      );
+
       return;
     }
 
     if (state.flags.caveTreasure) {
-      setMessage("The cave is quiet now. Your footprints remain in the silver dust.");
+      setMessage(
+        "The cave is quiet now. Your footprints remain in the silver dust."
+      );
+
       return;
     }
 
-    setMessage("The moon-shaped key opens the cave. A crystal pedestal glows in the darkness.", [
-      {
-        label: "Take the crystal",
-        run: () => {
-          state.flags.caveTreasure = true;
-          removeItem("Moon Cave Key");
-          addItem("Moon Crystal");
-          state.coins += 25;
-          render();
-          setMessage("You claim the Moon Crystal and discover 25 ancient coins. You completed the village adventure!");
+    setMessage(
+      "The moon-shaped key opens the cave. A crystal pedestal glows in the darkness.",
+      [
+        {
+          label: "Take the crystal",
+          run: () => {
+            state.flags.caveTreasure = true;
+
+            removeItem("Moon Cave Key");
+            addItem("Moon Crystal");
+
+            state.coins += 25;
+
+            render();
+
+            setMessage(
+              "You claim the Moon Crystal and discover 25 ancient coins. You completed the village adventure!"
+            );
+          }
+        },
+        {
+          label: "Leave it alone",
+          run: () => {
+            setMessage(
+              "You step away from the crystal. It continues to glow softly."
+            );
+          }
         }
-      },
-      {
-        label: "Leave it alone",
-        run: () => setMessage("You step away from the crystal. It continues to glow softly.")
-      }
-    ]);
+      ]
+    );
   }
 
   function restartGame() {
     state.coins = 5;
     state.inventory = [];
     state.quests = [];
+
     Object.keys(state.flags).forEach((key) => {
       state.flags[key] = false;
     });
 
     player.style.left = "48%";
     player.style.top = "55%";
+
     render();
-    setMessage("Welcome to JavaScript Village. Click a building or landmark to explore.");
+
+    setMessage(
+      "Welcome to Village Adventure. Click a building or landmark to explore."
+    );
   }
 
   render();
-  setMessage("Welcome to JavaScript Village. Click a building or landmark to explore.");
+
+  setMessage(
+    "Welcome to Village Adventure. Click a building or landmark to explore."
+  );
 })();
-"""
-
-(out / "index.html").write_text(index_html, encoding="utf-8")
-(out / "game.js").write_text(game_js.strip() + "\n", encoding="utf-8")
-
-zip_path = Path("/mnt/data/javascript_village_game.zip")
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-    z.write(out / "index.html", arcname="index.html")
-    z.write(out / "game.js", arcname="game.js")
-
-print(f"Created: {zip_path}")
