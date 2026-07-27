@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spot the Strange</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #101522;
+      --panel: #1a2234;
+      --panel-2: #263148;
+      --text: #f7f7fb;
+      --muted: #b8c0d4;
+      --accent: #ffd166;
+      --good: #58d68d;
+      --bad: #ff6b6b;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 20px;
+      background:
+        radial-gradient(circle at top, #263452 0, transparent 40%),
+        var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 4px 0 6px;
+      font-size: clamp(30px, 6vw, 52px);
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin: 0 auto 18px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .topbar {
+      width: min(920px, 100%);
+      margin: 0 auto 14px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: rgba(26, 34, 52, 0.92);
+      border: 1px solid #3a4865;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 21px;
+    }
+
+    #game {
+      position: relative;
+      width: min(920px, 100%);
+      min-height: 510px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 4px solid #e9eefc;
+      border-radius: 18px;
+      background: #d9e8ff;
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      user-select: none;
+    }
+
+    .scene {
+      position: relative;
+      width: 100%;
+      height: 510px;
+      overflow: hidden;
+    }
+
+    .scene-title {
+      position: absolute;
+      top: 14px;
+      left: 18px;
+      z-index: 20;
+      padding: 7px 12px;
+      border-radius: 999px;
+      color: white;
+      background: rgba(0,0,0,.55);
+      font-weight: bold;
+      pointer-events: none;
+    }
+
+    .object {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      font-size: 44px;
+      line-height: 1;
+      cursor: pointer;
+      transition: transform .15s ease, filter .15s ease;
+    }
+
+    .object:hover,
+    .object:focus-visible {
+      transform: scale(1.12);
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,.3));
+      outline: 3px solid rgba(255,255,255,.8);
+      outline-offset: 3px;
+      border-radius: 12px;
+    }
+
+    .object.small { font-size: 32px; }
+    .object.tiny { font-size: 24px; }
+    .object.large { font-size: 58px; }
+
+    .controls {
+      width: min(920px, 100%);
+      margin: 14px auto 0;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button.control {
+      border: 0;
+      border-radius: 11px;
+      padding: 11px 16px;
+      color: #111827;
+      background: var(--accent);
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button.control.secondary {
+      color: white;
+      background: #52627f;
+    }
+
+    button.control:hover { filter: brightness(1.06); }
+
+    #message {
+      width: min(920px, 100%);
+      min-height: 28px;
+      margin: 12px auto 0;
+      font-weight: bold;
+      color: var(--accent);
+    }
+
+    .hint-ring {
+      animation: pulse 1s infinite;
+      border-radius: 50%;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, .9); }
+      50% { box-shadow: 0 0 0 15px rgba(255, 209, 102, 0); }
+    }
+
+    .wrong-flash {
+      animation: shake .25s;
+    }
+
+    @keyframes shake {
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .found {
+      animation: found .45s ease;
+    }
+
+    @keyframes found {
+      50% { transform: scale(1.45) rotate(8deg); }
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 25px;
+      background: rgba(8, 12, 23, .87);
+    }
+
+    .overlay-card {
+      width: min(520px, 100%);
+      padding: 25px;
+      border-radius: 18px;
+      background: var(--panel);
+      border: 1px solid #53617c;
+    }
+
+    .overlay-card h2 {
+      margin-top: 0;
+      font-size: 32px;
+    }
+
+    .overlay-card p {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .overlay-card button {
+      border: 0;
+      border-radius: 11px;
+      padding: 12px 18px;
+      background: var(--accent);
+      color: #111827;
+      font-weight: bold;
+      font-size: 17px;
+      cursor: pointer;
+    }
+
+    /* Level backgrounds */
+    .park {
+      background: linear-gradient(#75c9ff 0 50%, #87c85b 50%);
+    }
+
+    .park::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 95px;
+      background: #c6a56d;
+      clip-path: polygon(0 60%, 100% 10%, 100% 100%, 0 100%);
+    }
+
+    .kitchen {
+      background:
+        linear-gradient(#f2eee5 0 62%, #aa7654 62%);
+    }
+
+    .kitchen::before {
+      content: "";
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 20%;
+      height: 190px;
+      background: #9dd0d6;
+      border: 12px solid #f7f1e7;
+      box-shadow: 0 0 0 3px #617786;
+    }
+
+    .space {
+      background:
+        radial-gradient(circle at 20% 20%, white 0 2px, transparent 3px),
+        radial-gradient(circle at 70% 35%, white 0 2px, transparent 3px),
+        radial-gradient(circle at 45% 75%, white 0 1px, transparent 2px),
+        radial-gradient(circle at 85% 80%, white 0 2px, transparent 3px),
+        linear-gradient(#08091c, #151849);
+      background-size: 150px 140px, 190px 160px, 120px 120px, 230px 170px, auto;
+    }
+
+    .classroom {
+      background: linear-gradient(#f4dfad 0 70%, #907255 70%);
+    }
+
+    .classroom::before {
+      content: "";
+      position: absolute;
+      left: 15%;
+      right: 15%;
+      top: 18%;
+      height: 170px;
+      background: #355f4a;
+      border: 12px solid #8b5f38;
+      box-shadow: 0 0 0 3px #6d472b;
+    }
+
+    .underwater {
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.5) 0 4px, transparent 5px),
+        radial-gradient(circle at 80% 35%, rgba(255,255,255,.45) 0 7px, transparent 8px),
+        linear-gradient(#46b6d9, #075887);
+    }
+
+    .underwater::before {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 95px;
+      background: #c7ad75;
+      clip-path: polygon(0 40%, 25% 20%, 50% 45%, 75% 15%, 100% 35%, 100% 100%, 0 100%);
+    }
+
+    .museum {
+      background:
+        linear-gradient(90deg, transparent 0 15%, rgba(255,255,255,.25) 15% 17%, transparent 17% 83%, rgba(255,255,255,.25) 83% 85%, transparent 85%),
+        linear-gradient(#d7c6ad 0 72%, #806b5b 72%);
+    }
+
+    .decoration {
+      position: absolute;
+      pointer-events: none;
+      font-size: 48px;
+    }
+
+    @media (max-width: 650px) {
+      body { padding: 10px; }
+
+      .topbar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      #game,
+      .scene {
+        min-height: 500px;
+        height: 500px;
+      }
+
+      .object { font-size: 38px; }
+      .object.large { font-size: 48px; }
+      .object.small { font-size: 28px; }
+      .object.tiny { font-size: 22px; }
+    }
+  
+    .launch-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at top, #344b78 0, transparent 45%),
+        linear-gradient(135deg, #101522, #1c2842);
+    }
+
+    .launch-card {
+      width: min(620px, 100%);
+      padding: 42px 28px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      background: rgba(20, 28, 47, 0.96);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .launch-card .launch-icon {
+      margin-bottom: 10px;
+      font-size: 76px;
+    }
+
+    .launch-card h2 {
+      margin: 0 0 12px;
+      font-size: clamp(38px, 8vw, 64px);
+    }
+
+    .launch-card p {
+      max-width: 500px;
+      margin: 0 auto 28px;
+      color: #cbd5e1;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .launch-card button {
+      min-width: 210px;
+      padding: 16px 28px;
+      border: 0;
+      border-radius: 14px;
+      background: #ffd166;
+      color: #111827;
+      font-size: 22px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .launch-card button:hover,
+    .launch-card button:focus-visible {
+      transform: scale(1.06);
+      filter: brightness(1.06);
+      outline: 3px solid white;
+      outline-offset: 4px;
+    }
+
+    .game-hidden {
+      display: none;
+    }
+    </style>
+</head>
+
+<body>
+  <section id="launchScreen" class="launch-screen">
+    <div class="launch-card">
+      <div class="launch-icon" aria-hidden="true">🔎</div>
+      <h2>Spot the Strange</h2>
+      <p>
+        Search each scene and find the hidden object that does not belong.
+        The levels become more difficult as you play.
+      </p>
+      <button id="startGameButton" type="button">Play Game</button>
+    </div>
+  </section>
+
+  <div id="gameContent" class="game-hidden">
+  <h1>🔎 Spot the Strange</h1>
+  <p class="subtitle">
+    Every scene contains one object that does not belong. Find it before time runs out.
+    Wrong guesses cost points, and each level becomes a little harder.
+  </p>
+
+  <section class="topbar" aria-label="Game statistics">
+    <div class="stat"><span>Level</span><strong id="levelText">1 / 6</strong></div>
+    <div class="stat"><span>Score</span><strong id="scoreText">0</strong></div>
+    <div class="stat"><span>Time</span><strong id="timeText">30</strong></div>
+    <div class="stat"><span>Hints</span><strong id="hintText">3</strong></div>
+  </section>
+
+  <main id="game" aria-label="Spot the strange game">
+    <div id="scene" class="scene"></div>
+  </main>
+
+  <div class="controls">
+    <button id="hintButton" class="control" type="button">Use Hint</button>
+    <button id="restartButton" class="control secondary" type="button">Restart Game</button>
+  </div>
+
+  <div id="message" aria-live="polite">Find the strange object.</div>
+
+  <script>
+    const levels = [
+      {
+        name: "Sunny Park",
+        className: "park",
+        time: 35,
+        strange: "fish",
+        hint: "Look for something that should be underwater.",
+        decorations: [
+          ["☀️", 83, 8], ["🌳", 8, 27], ["🌳", 77, 29],
+          ["🛝", 44, 40], ["🪁", 63, 18]
+        ],
+        objects: [
+          ["dog", "🐕", 15, 70, "large"],
+          ["bird", "🐦", 31, 24, "small"],
+          ["bench", "🪑", 60, 63, "large"],
+          ["ball", "⚽", 34, 72, ""],
+          ["flower", "🌼", 75, 75, "small"],
+          ["bike", "🚲", 5, 55, "large"],
+          ["fish", "🐟", 88, 68, "small"]
+        ]
+      },
+      {
+        name: "Busy Kitchen",
+        className: "kitchen",
+        time: 32,
+        strange: "shoe",
+        hint: "One object belongs on a foot.",
+        decorations: [
+          ["🪟", 42, 16], ["💡", 47, 3], ["🧱", 2, 70]
+        ],
+        objects: [
+          ["pan", "🍳", 17, 31, "large"],
+          ["apple", "🍎", 35, 70, ""],
+          ["cup", "☕", 58, 65, ""],
+          ["bread", "🍞", 73, 68, ""],
+          ["knife", "🔪", 81, 38, ""],
+          ["spoon", "🥄", 7, 75, ""],
+          ["shoe", "👟", 53, 38, "tiny"],
+          ["plate", "🍽️", 25, 55, ""]
+        ]
+      },
+      {
+        name: "Outer Space",
+        className: "space",
+        time: 30,
+        strange: "tree",
+        hint: "It needs soil and air.",
+        decorations: [
+          ["🌍", 72, 10], ["🪐", 10, 13], ["🌙", 85, 57]
+        ],
+        objects: [
+          ["rocket", "🚀", 16, 55, "large"],
+          ["astronaut", "🧑‍🚀", 43, 43, "large"],
+          ["satellite", "🛰️", 66, 57, "large"],
+          ["comet", "☄️", 30, 18, ""],
+          ["alien", "👽", 78, 34, ""],
+          ["star", "⭐", 48, 15, "small"],
+          ["tree", "🌳", 6, 78, "tiny"],
+          ["meteor", "🪨", 88, 78, "small"]
+        ]
+      },
+      {
+        name: "School Classroom",
+        className: "classroom",
+        time: 28,
+        strange: "octopus",
+        hint: "It has eight arms.",
+        decorations: [
+          ["📚", 5, 13], ["🕘", 82, 9], ["🗺️", 72, 36]
+        ],
+        objects: [
+          ["pencil", "✏️", 20, 35, ""],
+          ["book", "📘", 33, 65, ""],
+          ["backpack", "🎒", 75, 70, "large"],
+          ["calculator", "🧮", 55, 63, ""],
+          ["ruler", "📏", 13, 73, ""],
+          ["globe", "🌐", 85, 43, ""],
+          ["notebook", "📓", 43, 37, "small"],
+          ["octopus", "🐙", 59, 40, "tiny"],
+          ["scissors", "✂️", 28, 78, "small"]
+        ]
+      },
+      {
+        name: "Deep Ocean",
+        className: "underwater",
+        time: 26,
+        strange: "cat",
+        hint: "Listen for a meow.",
+        decorations: [
+          ["🪸", 8, 73], ["🪸", 76, 72], ["🌿", 42, 75],
+          ["🫧", 20, 20], ["🫧", 68, 22]
+        ],
+        objects: [
+          ["shark", "🦈", 15, 37, "large"],
+          ["fish1", "🐠", 42, 25, ""],
+          ["fish2", "🐟", 70, 45, ""],
+          ["crab", "🦀", 58, 77, ""],
+          ["turtle", "🐢", 28, 66, ""],
+          ["whale", "🐋", 76, 17, "large"],
+          ["shell", "🐚", 15, 81, "small"],
+          ["cat", "🐈", 89, 78, "tiny"],
+          ["jellyfish", "🪼", 49, 48, "small"]
+        ]
+      },
+      {
+        name: "Quiet Museum",
+        className: "museum",
+        time: 24,
+        strange: "banana",
+        hint: "One exhibit is a snack.",
+        decorations: [
+          ["🏛️", 43, 2], ["🕯️", 5, 33], ["🕯️", 88, 33]
+        ],
+        objects: [
+          ["painting", "🖼️", 14, 22, "large"],
+          ["statue", "🗿", 39, 56, "large"],
+          ["vase", "🏺", 62, 54, "large"],
+          ["fossil", "🦴", 79, 26, ""],
+          ["mask", "🎭", 27, 27, ""],
+          ["scroll", "📜", 17, 70, ""],
+          ["gem", "💎", 75, 70, "small"],
+          ["coin", "🪙", 51, 76, "small"],
+          ["banana", "🍌", 88, 52, "tiny"]
+        ]
+      }
+    ];
+
+    const scene = document.getElementById("scene");
+    const game = document.getElementById("game");
+    const levelText = document.getElementById("levelText");
+    const scoreText = document.getElementById("scoreText");
+    const timeText = document.getElementById("timeText");
+    const hintText = document.getElementById("hintText");
+    const hintButton = document.getElementById("hintButton");
+    const restartButton = document.getElementById("restartButton");
+    const message = document.getElementById("message");
+
+    let currentLevel = 0;
+    let score = 0;
+    let timeLeft = levels[0].time;
+    let hints = 3;
+    let timer = null;
+    let acceptingClicks = true;
+
+    function createObject([id, emoji, left, top, sizeClass]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `object ${sizeClass || ""}`;
+      button.dataset.id = id;
+      button.textContent = emoji;
+      button.style.left = `${left}%`;
+      button.style.top = `${top}%`;
+      button.setAttribute("aria-label", `Object: ${id}`);
+      button.addEventListener("click", () => checkObject(button));
+      return button;
+    }
+
+    function renderLevel() {
+      clearInterval(timer);
+      acceptingClicks = true;
+
+      const level = levels[currentLevel];
+      timeLeft = level.time;
+
+      scene.className = `scene ${level.className}`;
+      scene.innerHTML = "";
+
+      const title = document.createElement("div");
+      title.className = "scene-title";
+      title.textContent = `Level ${currentLevel + 1}: ${level.name}`;
+      scene.appendChild(title);
+
+      level.decorations.forEach(([emoji, left, top]) => {
+        const item = document.createElement("div");
+        item.className = "decoration";
+        item.textContent = emoji;
+        item.style.left = `${left}%`;
+        item.style.top = `${top}%`;
+        scene.appendChild(item);
+      });
+
+      level.objects.forEach(item => scene.appendChild(createObject(item)));
+
+      levelText.textContent = `${currentLevel + 1} / ${levels.length}`;
+      scoreText.textContent = score;
+      timeText.textContent = timeLeft;
+      hintText.textContent = hints;
+      message.textContent = "Find the strange object.";
+      hintButton.disabled = hints <= 0;
+
+      timer = setInterval(() => {
+        timeLeft--;
+        timeText.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          acceptingClicks = false;
+          message.textContent = `Time is up! The strange object was ${getStrangeEmoji()}.`;
+          revealStrange();
+          setTimeout(nextLevel, 1800);
+        }
+      }, 1000);
+    }
+
+    function getStrangeEmoji() {
+      const level = levels[currentLevel];
+      return level.objects.find(object => object[0] === level.strange)[1];
+    }
+
+    function checkObject(button) {
+      if (!acceptingClicks) return;
+
+      const level = levels[currentLevel];
+      const id = button.dataset.id;
+
+      if (id === level.strange) {
+        acceptingClicks = false;
+        clearInterval(timer);
+
+        const earned = 100 + timeLeft * 3;
+        score += earned;
+        scoreText.textContent = score;
+
+        button.classList.add("found");
+        message.textContent = `Correct! +${earned} points`;
+        setTimeout(nextLevel, 1100);
+      } else {
+        score = Math.max(0, score - 10);
+        scoreText.textContent = score;
+        message.textContent = "That belongs here. Try another object.";
+        button.classList.remove("wrong-flash");
+        void button.offsetWidth;
+        button.classList.add("wrong-flash");
+      }
+    }
+
+    function useHint() {
+      if (hints <= 0 || !acceptingClicks) return;
+
+      hints--;
+      score = Math.max(0, score - 25);
+      hintText.textContent = hints;
+      scoreText.textContent = score;
+      hintButton.disabled = hints <= 0;
+
+      const level = levels[currentLevel];
+      message.textContent = `Hint: ${level.hint} (-25 points)`;
+
+      if (hints === 0) {
+        revealStrange(1400);
+      }
+    }
+
+    function revealStrange(duration = 1800) {
+      const level = levels[currentLevel];
+      const target = scene.querySelector(`[data-id="${level.strange}"]`);
+      if (!target) return;
+
+      target.classList.add("hint-ring");
+      setTimeout(() => target.classList.remove("hint-ring"), duration);
+    }
+
+    function nextLevel() {
+      currentLevel++;
+
+      if (currentLevel >= levels.length) {
+        finishGame();
+        return;
+      }
+
+      renderLevel();
+    }
+
+    function finishGame() {
+      clearInterval(timer);
+      scene.innerHTML = `
+        <div class="overlay">
+          <div class="overlay-card">
+            <h2>🎉 You finished!</h2>
+            <p>Your final score is <strong>${score}</strong>.</p>
+            <p>
+              ${score >= 1000
+                ? "Amazing observation skills!"
+                : score >= 650
+                ? "Great job! You have a sharp eye."
+                : "Nice work! Try again to improve your score."}
+            </p>
+            <button id="playAgainButton" type="button">Play Again</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("playAgainButton").addEventListener("click", restartGame);
+      message.textContent = "Game complete.";
+    }
+
+    function restartGame() {
+      clearInterval(timer);
+      currentLevel = 0;
+      score = 0;
+      hints = 3;
+      renderLevel();
+    }
+
+    hintButton.addEventListener("click", useHint);
+    restartButton.addEventListener("click", restartGame);
+
+    renderLevel();
+  </script>
+  </div>
+
+  <script>
+    const launchScreen = document.getElementById("launchScreen");
+    const gameContent = document.getElementById("gameContent");
+    const startGameButton = document.getElementById("startGameButton");
+
+    startGameButton.addEventListener("click", () => {
+      launchScreen.style.display = "none";
+      gameContent.classList.remove("game-hidden");
+    });
+  </script>
+</body>
+</html>
