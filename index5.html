@@ -329,6 +329,10 @@
         loadLevel(2);
       }
 
+      if (level === 2 && exitDoor && !exitDoor.locked && rectsOverlap(player, exitDoor)) {
+        loadLevel(3);
+      }
+
       if (level === 3 && exitDoor && !exitDoor.locked && rectsOverlap(player, exitDoor)) {
         gameWon = true;
         gameStarted = false;
