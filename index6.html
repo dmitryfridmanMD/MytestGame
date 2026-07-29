@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rockfall Ascent</title>
+
+  <link rel="stylesheet" href="style.css">
+  <script src="game.js" defer></script>
+</head>
+
+<body>
+
+  <main class="game-wrap">
+
+    <h1>Rockfall Ascent</h1>
+
+    <p class="subtitle">
+      Dodge falling rocks, jump on glowing rocks to climb higher,
+      defeat enemies, and earn a trophy!
+    </p>
+
+    <section class="menu">
+
+      <label for="mode">Game Mode:</label>
+
+      <select id="mode">
+        <option value="normal">Normal</option>
+        <option value="survival">Survival</option>
+        <option value="speedrun">Speed Run</option>
+        <option value="hard">Hard Mode</option>
+      </select>
+
+      <button id="startButton">Start Game</button>
+
+    </section>
+
+    <section class="hud">
+
+      <div>
+        <span>Score</span>
+        <strong id="score">0</strong>
+      </div>
+
+      <div>
+        <span>Time</span>
+        <strong id="time">0.0</strong>
+      </div>
+
+      <div>
+        <span>Lives</span>
+        <strong id="lives">3</strong>
+      </div>
+
+      <div>
+        <span>Platforms</span>
+        <strong id="platformCount">0 / 0</strong>
+      </div>
+
+      <div>
+        <span>Mode</span>
+        <strong id="modeName">Normal</strong>
+      </div>
+
+    </section>
+
+    <canvas
+      id="gameCanvas"
+      width="960"
+      height="540">
+    </canvas>
+
+    <p id="message" class="message">
+      Choose a game mode and press Start Game.
+    </p>
+
+    <section class="instructions">
+
+      <strong>Controls</strong><br>
+
+      Move:
+      A/D or Left/Right Arrow
+
+      <br>
+
+      Jump:
+      W / Up Arrow / Space
+
+      <br>
+
+      Fireball:
+      F
+
+      <br>
+
+      Pause:
+      P
+
+    </section>
+
+    <section class="touch-controls">
+
+      <button id="leftButton">◀</button>
+
+      <button id="jumpButton">▲</button>
+
+      <button id="rightButton">▶</button>
+
+      <button id="fireButton" class="wide">
+        🔥 Fire
+      </button>
+
+    </section>
+
+  </main>
+
+</body>
+</html>
