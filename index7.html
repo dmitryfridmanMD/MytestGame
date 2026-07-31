@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veggie Victory</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <main class="game-shell">
+    <header>
+      <h1>🥕 Veggie Victory 🥦</h1>
+      <p>Choose a vegetable hero, defeat the junk food army, and reach the golden exit!</p>
+    </header>
+
+    <section id="selectionScreen" class="panel">
+      <h2>Choose Your Vegetable</h2>
+      <div class="vegetable-grid">
+        <button class="vegetable-card" data-hero="carrot">
+          <span class="hero-emoji">🥕</span>
+          <strong>Captain Carrot</strong>
+          <span>Special: Rocket Dash</span>
+        </button>
+
+        <button class="vegetable-card" data-hero="broccoli">
+          <span class="hero-emoji">🥦</span>
+          <strong>Broccoli Guardian</strong>
+          <span>Special: Leaf Shield</span>
+        </button>
+
+        <button class="vegetable-card" data-hero="tomato">
+          <span class="hero-emoji">🍅</span>
+          <strong>Tomato Blaster</strong>
+          <span>Special: Sauce Explosion</span>
+        </button>
+
+        <button class="vegetable-card" data-hero="corn">
+          <span class="hero-emoji">🌽</span>
+          <strong>Corn Jumper</strong>
+          <span>Special: Triple Jump</span>
+        </button>
+      </div>
+
+      <div class="instructions">
+        <h3>Controls</h3>
+        <p><b>Move:</b> A/D or ←/→ &nbsp; <b>Jump:</b> W, ↑, or Space</p>
+        <p><b>Attack:</b> F &nbsp; <b>Special Power:</b> E &nbsp; <b>Restart:</b> R</p>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="hidden">
+      <div class="hud">
+        <span id="heroLabel">Hero</span>
+        <span id="healthLabel">Health: 5</span>
+        <span id="enemyLabel">Enemies: 0</span>
+        <span id="powerLabel">Power: Ready</span>
+      </div>
+      <canvas id="gameCanvas" width="960" height="540" aria-label="Veggie Victory game"></canvas>
+      <div class="mobile-controls">
+        <button id="leftButton">◀</button>
+        <button id="rightButton">▶</button>
+        <button id="jumpButton">JUMP</button>
+        <button id="attackButton">ATTACK</button>
+        <button id="specialButton">POWER</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
