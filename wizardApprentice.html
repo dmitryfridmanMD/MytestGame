@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wizard Apprentice: Elemental Trials</title>
+<style>
+  :root {
+    --bg: #12111c;
+    --panel: #211f32;
+    --panel2: #2b2940;
+    --text: #f6f1ff;
+    --muted: #c5bdd9;
+    --gold: #ffd166;
+    --danger: #ef476f;
+    --ok: #06d6a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background:
+      radial-gradient(circle at top, #30284c 0, #12111c 48%, #090811 100%);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 22px;
+  }
+  .game {
+    width: min(1000px, 100%);
+  }
+  h1 {
+    text-align: center;
+    margin: 4px 0 8px;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+  .panel {
+    background: rgba(33,31,50,.95);
+    border: 1px solid #494267;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .hidden { display: none !important; }
+
+  .elements {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .element-card {
+    border: 1px solid #514a6d;
+    border-radius: 14px;
+    padding: 15px;
+    background: var(--panel2);
+    cursor: pointer;
+    transition: .15s transform, .15s border-color;
+    text-align: center;
+  }
+  .element-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--gold);
+  }
+  .icon { font-size: 3rem; }
+  .small { color: var(--muted); font-size: .92rem; }
+
+  .hud {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .statbox {
+    background: rgba(43,41,64,.95);
+    border: 1px solid #494267;
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .bar {
+    height: 14px;
+    background: #171522;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 5px;
+    border: 1px solid #403a5b;
+  }
+  .fill { height: 100%; width: 50%; transition: width .25s; }
+  .hp { background: linear-gradient(90deg, #ef476f, #ff7a59); }
+  .mana { background: linear-gradient(90deg, #4cc9f0, #4361ee); }
+  .xp { background: linear-gradient(90deg, #ffd166, #fca311); }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1.35fr .8fr;
+    gap: 12px;
+  }
+  .arena {
+    min-height: 380px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .enemy {
+    text-align: center;
+    padding: 10px;
+  }
+  .enemy .sprite { font-size: 6rem; }
+  .enemy-name { font-size: 1.5rem; font-weight: 800; }
+  .battletext {
+    min-height: 90px;
+    background: #171522;
+    border-radius: 10px;
+    padding: 10px;
+    color: #e6ddf6;
+    overflow-y: auto;
+    border: 1px solid #3b3652;
+  }
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  button {
+    border: 0;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-weight: 800;
+    cursor: pointer;
+    background: #6c5ce7;
+    color: white;
+    transition: .15s transform, .15s filter;
+  }
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.08);
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .secondary { background: #44405f; }
+  .gold { background: #b07d12; }
+  .danger { background: #b72d51; }
+
+  .side h3 { margin-top: 6px; }
+  .upgrade {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid #403a5b;
+  }
+  .upgrade:last-child { border-bottom: none; }
+  .badge {
+    display:inline-block;
+    padding: 3px 8px;
+    border-radius:999px;
+    background:#3b3652;
+    color:#eee;
+    font-size:.82rem;
+  }
+  .choice-row {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .choice {
+    background:#2f2b46;
+    padding: 12px;
+    border: 1px solid #4d466c;
+    border-radius: 12px;
+    cursor:pointer;
+  }
+  .choice:hover { border-color: var(--gold); }
+  .win { color: var(--ok); font-weight: 800; }
+  .lose { color: var(--danger); font-weight: 800; }
+
+  @media (max-width: 760px) {
+    .elements, .hud, .main-grid, .choice-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="game">
+  <h1>Wizard Apprentice</h1>
+  <div class="subtitle">Master an element. Train your magic. Survive the trials. Defeat the Archfiend.</div>
+
+  <section id="start" class="panel">
+    <h2>Choose Your Element</h2>
+    <p class="small">Each element has a unique bonus and special spell.</p>
+    <div class="elements">
+      <div class="element-card" onclick="chooseElement('Fire')">
+        <div class="icon">🔥</div><h3>Fire</h3>
+        <div class="small">High damage. Burn enemies over time.</div>
+      </div>
+      <div class="element-card" onclick="chooseElement('Water')">
+        <div class="icon">💧</div><h3>Water</h3>
+        <div class="small">Balanced magic. Healing and steady damage.</div>
+      </div>
+      <div class="element-card" onclick="chooseElement('Earth')">
+        <div class="icon">🪨</div><h3>Earth</h3>
+        <div class="small">Extra health and strong defenses.</div>
+      </div>
+      <div class="element-card" onclick="chooseElement('Air')">
+        <div class="icon">⚡</div><h3>Air</h3>
+        <div class="small">Fast, critical-heavy lightning spells.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="hud">
+      <div class="statbox">
+        <strong id="wizardTitle">Apprentice</strong>
+        <div class="small" id="elementLabel"></div>
+        <div>HP: <span id="hpText"></span></div>
+        <div class="bar"><div id="hpBar" class="fill hp"></div></div>
+        <div>Mana: <span id="manaText"></span></div>
+        <div class="bar"><div id="manaBar" class="fill mana"></div></div>
+      </div>
+      <div class="statbox">
+        <div>Level <strong id="levelText">1</strong></div>
+        <div>XP: <span id="xpText"></span></div>
+        <div class="bar"><div id="xpBar" class="fill xp"></div></div>
+        <div>Gold: <strong id="goldText">0</strong> 🪙</div>
+        <div>Power: <strong id="powerText">0</strong></div>
+      </div>
+      <div class="statbox">
+        <div>Trial: <strong id="trialText"></strong></div>
+        <div>Monsters defeated: <strong id="killsText">0</strong></div>
+        <div class="small" id="goalText">Train, then enter battle.</div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="panel arena">
+        <div class="enemy">
+          <div id="enemySprite" class="sprite">🧙</div>
+          <div id="enemyName" class="enemy-name">Training Grounds</div>
+          <div id="enemyHpArea" class="hidden">
+            HP: <span id="enemyHpText"></span>
+            <div class="bar"><div id="enemyHpBar" class="fill hp"></div></div>
+          </div>
+        </div>
+
+        <div id="battleText" class="battletext">
+          Your mentor points toward the training grounds. “Power is earned, apprentice.”
+        </div>
+
+        <div class="actions">
+          <button id="trainBtn" onclick="train()">Train Element</button>
+          <button id="fightBtn" onclick="startFight()">Seek Monster</button>
+          <button id="attackBtn" class="hidden" onclick="castBasic()">Cast Spell</button>
+          <button id="specialBtn" class="hidden gold" onclick="castSpecial()">Special Spell</button>
+          <button id="focusBtn" class="hidden secondary" onclick="focusMana()">Focus Mana</button>
+          <button id="potionBtn" class="hidden secondary" onclick="usePotion()">Use Potion</button>
+        </div>
+      </div>
+
+      <div class="panel side">
+        <h3>Spellbook</h3>
+        <div><span class="badge" id="basicSpellName">Spell</span></div>
+        <p class="small" id="basicSpellDesc"></p>
+        <div><span class="badge" id="specialSpellName">Special</span></div>
+        <p class="small" id="specialSpellDesc"></p>
+
+        <h3>Upgrades</h3>
+        <div class="upgrade">
+          <div><strong>Power Rune</strong><div class="small">+3 spell damage</div></div>
+          <button onclick="buyUpgrade('power')">25 🪙</button>
+        </div>
+        <div class="upgrade">
+          <div><strong>Vitality Rune</strong><div class="small">+15 max HP</div></div>
+          <button onclick="buyUpgrade('hp')">30 🪙</button>
+        </div>
+        <div class="upgrade">
+          <div><strong>Mana Rune</strong><div class="small">+10 max mana</div></div>
+          <button onclick="buyUpgrade('mana')">25 🪙</button>
+        </div>
+        <div class="upgrade">
+          <div><strong>Potion</strong><div class="small">Heal 35 HP in battle</div></div>
+          <button onclick="buyUpgrade('potion')">20 🪙</button>
+        </div>
+        <p class="small">Potions: <span id="potionsText">1</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="levelup" class="panel hidden" style="margin-top:12px">
+    <h2>Level Up!</h2>
+    <p>Choose one advancement:</p>
+    <div class="choice-row">
+      <div class="choice" onclick="levelChoice('power')"><strong>Arcane Force</strong><div class="small">+5 power</div></div>
+      <div class="choice" onclick="levelChoice('hp')"><strong>Iron Will</strong><div class="small">+25 max HP and heal</div></div>
+      <div class="choice" onclick="levelChoice('mana')"><strong>Deep Focus</strong><div class="small">+20 max mana and restore</div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const ELEMENTS = {
+  Fire: {
+    icon:"🔥", basic:"Firebolt", special:"Inferno",
+    basicDesc:"A powerful fire blast. Costs 8 mana.",
+    specialDesc:"Heavy damage and applies Burn. Costs 22 mana.",
+    hp:95, mana:70, power:13
+  },
+  Water: {
+    icon:"💧", basic:"Water Lance", special:"Tidal Renewal",
+    basicDesc:"Reliable water damage. Costs 7 mana.",
+    specialDesc:"Deals damage and heals you. Costs 20 mana.",
+    hp:105, mana:80, power:11
+  },
+  Earth: {
+    icon:"🪨", basic:"Stone Shard", special:"Mountain Guard",
+    basicDesc:"Solid damage with sturdy defenses. Costs 8 mana.",
+    specialDesc:"Damage plus a defensive shield. Costs 20 mana.",
+    hp:125, mana:65, power:10
+  },
+  Air: {
+    icon:"⚡", basic:"Spark", special:"Chain Lightning",
+    basicDesc:"Fast lightning with increased critical chance. Costs 7 mana.",
+    specialDesc:"High critical chance and strong damage. Costs 22 mana.",
+    hp:90, mana:85, power:12
+  }
+};
+
+const MONSTERS = [
+  {name:"Cave Slime", sprite:"🟢", hp:45, atk:[6,11], xp:18, gold:[10,18]},
+  {name:"Goblin Hexer", sprite:"👺", hp:65, atk:[8,14], xp:24, gold:[14,22]},
+  {name:"Stonefang Wolf", sprite:"🐺", hp:82, atk:[10,17], xp:30, gold:[18,28]},
+  {name:"Crypt Wraith", sprite:"👻", hp:100, atk:[12,20], xp:38, gold:[22,34]},
+  {name:"Ogre Magus", sprite:"👹", hp:125, atk:[14,23], xp:48, gold:[28,42]}
+];
+
+const BOSS = {
+  name:"Archfiend Malakar", sprite:"👿", hp:260, atk:[18,30], xp:999, gold:[100,140], boss:true
+};
+
+let p = {};
+let enemy = null;
+let inBattle = false;
+let levelPending = false;
+let shield = 0;
+let burnTurns = 0;
+
+function chooseElement(el){
+  const e = ELEMENTS[el];
+  p = {
+    element:el, level:1, xp:0, xpNeed:40, gold:20, kills:0, trial:1,
+    maxHp:e.hp, hp:e.hp, maxMana:e.mana, mana:e.mana, power:e.power,
+    potions:1, training:0
+  };
+  document.getElementById("start").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  document.getElementById("basicSpellName").textContent = e.basic;
+  document.getElementById("specialSpellName").textContent = e.special;
+  document.getElementById("basicSpellDesc").textContent = e.basicDesc;
+  document.getElementById("specialSpellDesc").textContent = e.specialDesc;
+  log(`${e.icon} You chose ${el}. Your apprenticeship begins.`);
+  updateUI();
+}
+
+function updateUI(){
+  document.getElementById("wizardTitle").textContent = titleForLevel();
+  document.getElementById("elementLabel").textContent = `${ELEMENTS[p.element].icon} ${p.element} Apprentice`;
+  document.getElementById("hpText").textContent = `${Math.max(0,p.hp)} / ${p.maxHp}`;
+  document.getElementById("manaText").textContent = `${p.mana} / ${p.maxMana}`;
+  document.getElementById("hpBar").style.width = `${Math.max(0,p.hp)/p.maxHp*100}%`;
+  document.getElementById("manaBar").style.width = `${p.mana/p.maxMana*100}%`;
+  document.getElementById("levelText").textContent = p.level;
+  document.getElementById("xpText").textContent = `${p.xp} / ${p.xpNeed}`;
+  document.getElementById("xpBar").style.width = `${Math.min(100,p.xp/p.xpNeed*100)}%`;
+  document.getElementById("goldText").textContent = p.gold;
+  document.getElementById("powerText").textContent = p.power;
+  document.getElementById("killsText").textContent = p.kills;
+  document.getElementById("trialText").textContent = p.kills >= 6 ? "Final Trial" : `${p.kills + 1} / 6`;
+  document.getElementById("potionsText").textContent = p.potions;
+  document.getElementById("fightBtn").textContent = p.kills >= 6 ? "Face Final Boss" : "Seek Monster";
+
+  if(enemy){
+    document.getElementById("enemyHpText").textContent = `${Math.max(0,enemy.hp)} / ${enemy.maxHp}`;
+    document.getElementById("enemyHpBar").style.width = `${Math.max(0,enemy.hp)/enemy.maxHp*100}%`;
+  }
+
+  const fightDisabled = inBattle || levelPending;
+  document.getElementById("trainBtn").disabled = fightDisabled;
+  document.getElementById("fightBtn").disabled = fightDisabled;
+}
+
+function titleForLevel(){
+  if(p.level >= 6) return "Elemental Master";
+  if(p.level >= 4) return "Battle Mage";
+  if(p.level >= 2) return "Journeyman Wizard";
+  return "Wizard Apprentice";
+}
+
+function log(msg){
+  const box = document.getElementById("battleText");
+  box.innerHTML = msg + "<br><br>" + box.innerHTML;
+}
+
+function train(){
+  if(inBattle || levelPending) return;
+  p.training++;
+  const manaGain = Math.min(12, p.maxMana-p.mana);
+  p.mana += manaGain;
+  p.hp = Math.min(p.maxHp, p.hp + 8);
+
+  if(p.training % 2 === 0){
+    p.power += 1;
+    log(`✨ Your ${p.element} control sharpens. +1 Power. You also recover some HP and mana.`);
+  } else {
+    log(`📚 You practice spell forms and recover ${manaGain} mana.`);
+  }
+  updateUI();
+}
+
+function startFight(){
+  if(inBattle || levelPending) return;
+  if(p.kills >= 6){
+    enemy = {...BOSS};
+  } else {
+    let idx = Math.min(MONSTERS.length-1, Math.floor(p.kills * MONSTERS.length / 6));
+    let base = MONSTERS[idx];
+    let scale = 1 + p.kills*0.10;
+    enemy = {...base, hp:Math.round(base.hp*scale), atk:[Math.round(base.atk[0]*scale),Math.round(base.atk[1]*scale)]};
+  }
+  enemy.maxHp = enemy.hp;
+  inBattle = true;
+  shield = 0;
+  burnTurns = 0;
+
+  document.getElementById("enemySprite").textContent = enemy.sprite;
+  document.getElementById("enemyName").textContent = enemy.name;
+  document.getElementById("enemyHpArea").classList.remove("hidden");
+  toggleBattleButtons(true);
+  log(enemy.boss ? `🔥 The ground shakes. ${enemy.name} appears! This is the final battle.` : `⚔️ A ${enemy.name} attacks!`);
+  updateUI();
+}
+
+function toggleBattleButtons(on){
+  document.getElementById("attackBtn").classList.toggle("hidden", !on);
+  document.getElementById("specialBtn").classList.toggle("hidden", !on);
+  document.getElementById("focusBtn").classList.toggle("hidden", !on);
+  document.getElementById("potionBtn").classList.toggle("hidden", !on);
+  document.getElementById("trainBtn").classList.toggle("hidden", on);
+  document.getElementById("fightBtn").classList.toggle("hidden", on);
+}
+
+function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+function castBasic(){
+  if(!inBattle) return;
+  let cost = p.element === "Water" || p.element === "Air" ? 7 : 8;
+  if(p.mana < cost){ log("💨 Not enough mana."); return; }
+  p.mana -= cost;
+
+  let dmg = rand(p.power-2,p.power+5);
+  let crit = false;
+  if(p.element === "Air" && Math.random()<0.28){ dmg *= 2; crit=true; }
+  if(Math.random()<0.08){ dmg = Math.floor(dmg*1.5); crit=true; }
+  enemy.hp -= dmg;
+  log(`${ELEMENTS[p.element].icon} ${ELEMENTS[p.element].basic} hits for ${dmg} damage${crit ? " — CRITICAL!" : "!"}`);
+  afterPlayerAction();
+}
+
+function castSpecial(){
+  if(!inBattle) return;
+  let cost = (p.element === "Water" || p.element === "Earth") ? 20 : 22;
+  if(p.mana < cost){ log("💨 Not enough mana for your special spell."); return; }
+  p.mana -= cost;
+
+  let dmg = rand(Math.floor(p.power*1.5), Math.floor(p.power*2.2));
+
+  if(p.element === "Fire"){
+    burnTurns = 3;
+    enemy.hp -= dmg;
+    log(`🔥 Inferno explodes for ${dmg} damage and ignites the enemy!`);
+  } else if(p.element === "Water"){
+    enemy.hp -= dmg;
+    let heal = Math.min(24, p.maxHp-p.hp);
+    p.hp += heal;
+    log(`💧 Tidal Renewal deals ${dmg} damage and restores ${heal} HP.`);
+  } else if(p.element === "Earth"){
+    enemy.hp -= dmg;
+    shield = 18 + p.level*3;
+    log(`🪨 Mountain Guard deals ${dmg} damage and grants a ${shield}-point shield.`);
+  } else {
+    if(Math.random()<0.45){ dmg *= 2; log(`⚡ Chain Lightning CRITS for ${dmg} damage!`); }
+    else log(`⚡ Chain Lightning strikes for ${dmg} damage.`);
+    enemy.hp -= dmg;
+  }
+  afterPlayerAction();
+}
+
+function focusMana(){
+  if(!inBattle) return;
+  let gain = Math.min(18 + p.level*2, p.maxMana-p.mana);
+  p.mana += gain;
+  log(`🧘 You focus and restore ${gain} mana.`);
+  enemyTurn();
+}
+
+function usePotion(){
+  if(!inBattle) return;
+  if(p.potions <= 0){ log("🧪 You have no potions."); return; }
+  p.potions--;
+  let heal = Math.min(35, p.maxHp-p.hp);
+  p.hp += heal;
+  log(`🧪 You drink a potion and recover ${heal} HP.`);
+  enemyTurn();
+}
+
+function afterPlayerAction(){
+  if(enemy.hp <= 0){ winFight(); return; }
+  enemyTurn();
+}
+
+function enemyTurn(){
+  if(!inBattle) return;
+
+  if(burnTurns > 0){
+    const burn = 5 + p.level*2;
+    enemy.hp -= burn;
+    burnTurns--;
+    log(`🔥 Burn deals ${burn} damage.`);
+    if(enemy.hp <= 0){ winFight(); return; }
+  }
+
+  let dmg = rand(enemy.atk[0], enemy.atk[1]);
+  if(shield > 0){
+    let blocked = Math.min(shield,dmg);
+    shield -= blocked;
+    dmg -= blocked;
+    log(`🛡️ Your shield blocks ${blocked} damage.`);
+  }
+
+  if(enemy.boss && Math.random()<0.18){
+    dmg += 10;
+    log(`👿 ${enemy.name} unleashes DARK NOVA!`);
+  }
+
+  p.hp -= dmg;
+  log(`${enemy.sprite} ${enemy.name} hits you for ${dmg} damage.`);
+  if(p.hp <= 0){ loseFight(); }
+  updateUI();
+}
+
+function winFight(){
+  inBattle = false;
+  toggleBattleButtons(false);
+
+  if(enemy.boss){
+    enemy.hp = 0;
+    updateUI();
+    log(`<span class="win">🏆 You defeated ${enemy.name}! The academy bells ring across the realm. You are no longer an apprentice — you are an ELEMENTAL MASTER!</span>`);
+    document.getElementById("goalText").textContent = "Victory! You completed the game.";
+    document.getElementById("fightBtn").disabled = true;
+    document.getElementById("trainBtn").disabled = true;
+    return;
+  }
+
+  const gold = rand(enemy.gold[0], enemy.gold[1]);
+  p.gold += gold;
+  p.xp += enemy.xp;
+  p.kills++;
+  p.hp = Math.min(p.maxHp, p.hp + 12);
+  p.mana = Math.min(p.maxMana, p.mana + 16);
+  log(`<span class="win">✅ ${enemy.name} defeated! +${enemy.xp} XP, +${gold} gold.</span>`);
+
+  enemy = null;
+  document.getElementById("enemySprite").textContent = "🧙";
+  document.getElementById("enemyName").textContent = "Training Grounds";
+  document.getElementById("enemyHpArea").classList.add("hidden");
+
+  if(p.xp >= p.xpNeed){
+    p.xp -= p.xpNeed;
+    p.level++;
+    p.xpNeed = Math.round(p.xpNeed * 1.35);
+    levelPending = true;
+    document.getElementById("levelup").classList.remove("hidden");
+    log(`🌟 You reached level ${p.level}! Choose an advancement.`);
+  }
+
+  if(p.kills >= 6){
+    document.getElementById("goalText").textContent = "The final boss awaits.";
+  } else {
+    document.getElementById("goalText").textContent = "Train or seek your next monster.";
+  }
+  updateUI();
+}
+
+function loseFight(){
+  inBattle = false;
+  toggleBattleButtons(false);
+  log(`<span class="lose">💀 You were defeated — but your mentor drags you back to the academy.</span>`);
+  p.hp = Math.ceil(p.maxHp*0.55);
+  p.mana = Math.ceil(p.maxMana*0.50);
+  p.gold = Math.max(0,p.gold-10);
+  enemy = null;
+  document.getElementById("enemySprite").textContent = "🧙";
+  document.getElementById("enemyName").textContent = "Training Grounds";
+  document.getElementById("enemyHpArea").classList.add("hidden");
+  updateUI();
+}
+
+function levelChoice(type){
+  if(type==="power") p.power += 5;
+  if(type==="hp"){ p.maxHp += 25; p.hp = p.maxHp; }
+  if(type==="mana"){ p.maxMana += 20; p.mana = p.maxMana; }
+  levelPending = false;
+  document.getElementById("levelup").classList.add("hidden");
+  log(`✨ Advancement chosen: ${type.toUpperCase()}.`);
+  updateUI();
+}
+
+function buyUpgrade(type){
+  if(inBattle) return;
+  const costs = {power:25,hp:30,mana:25,potion:20};
+  let c = costs[type];
+  if(p.gold < c){ log("🪙 You do not have enough gold."); return; }
+  p.gold -= c;
+  if(type==="power"){ p.power += 3; log("🔮 Power Rune acquired. +3 Power."); }
+  if(type==="hp"){ p.maxHp += 15; p.hp += 15; log("❤️ Vitality Rune acquired. +15 Max HP."); }
+  if(type==="mana"){ p.maxMana += 10; p.mana += 10; log("💠 Mana Rune acquired. +10 Max Mana."); }
+  if(type==="potion"){ p.potions++; log("🧪 Potion purchased."); }
+  updateUI();
+}
+</script>
+</body>
+</html>
