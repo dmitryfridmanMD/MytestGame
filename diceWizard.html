@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<title>Dice Wizard: The Seventh Face</title>
+
+<style>
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+
+    background:
+        radial-gradient(
+            circle at top,
+            #2d245e 0%,
+            #121127 45%,
+            #080912 100%
+        );
+
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+
+#game {
+
+    width: min(950px,94vw);
+
+    margin: 24px auto;
+
+    background: rgba(10,12,30,.94);
+
+    border: 2px solid #7770ff;
+
+    border-radius: 20px;
+
+    box-shadow:
+        0 0 35px rgba(100,90,255,.35);
+
+    overflow: hidden;
+}
+
+
+header {
+
+    padding: 18px 22px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #3d2a7a,
+            #242b66
+        );
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 10px;
+
+    flex-wrap: wrap;
+}
+
+
+h1 {
+
+    margin: 0;
+
+    font-size:
+        clamp(24px,4vw,40px);
+}
+
+
+.subtitle {
+
+    opacity: .85;
+
+    font-size: 14px;
+}
+
+
+#content {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 16px;
+
+    padding: 18px;
+}
+
+
+.panel {
+
+    background: #15182f;
+
+    border:
+        1px solid #34385c;
+
+    border-radius: 16px;
+
+    padding: 16px;
+}
+
+
+.stats {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(2,1fr);
+
+    gap: 8px;
+
+    font-size: 15px;
+}
+
+
+.bar {
+
+    width: 100%;
+
+    height: 18px;
+
+    background: #2a2c42;
+
+    border-radius: 10px;
+
+    overflow: hidden;
+
+    margin: 6px 0 12px;
+}
+
+
+.fill {
+
+    height: 100%;
+
+    width: 100%;
+
+    transition:
+        width .35s;
+}
+
+
+#playerHpFill {
+
+    background:
+        linear-gradient(
+            90deg,
+            #46d66e,
+            #9bea6a
+        );
+}
+
+
+#monsterHpFill {
+
+    background:
+        linear-gradient(
+            90deg,
+            #e74e4e,
+            #ff8c62
+        );
+}
+
+
+#xpFill {
+
+    background:
+        linear-gradient(
+            90deg,
+            #4c8dff,
+            #8c61ff
+        );
+}
+
+
+.monster {
+
+    font-size: 70px;
+
+    text-align: center;
+
+    margin: 10px 0;
+
+    filter:
+        drop-shadow(
+            0 0 10px
+            rgba(255,255,255,.12)
+        );
+}
+
+
+#die {
+
+    width: 135px;
+
+    height: 135px;
+
+    margin: 14px auto;
+
+    border-radius: 22px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 72px;
+
+    font-weight: bold;
+
+    background: #eeeeee;
+
+    color: #111111;
+
+    box-shadow:
+        inset 0 0 0 5px #bdbdbd,
+        0 10px 25px rgba(0,0,0,.35);
+
+    transition:
+        transform .2s,
+        filter .2s;
+
+    user-select: none;
+}
+
+
+#die.rolling {
+
+    animation:
+        shake .5s;
+}
+
+
+#die.rainbow {
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ff304f,
+            #ff9c2c,
+            #ffe84a,
+            #38d973,
+            #35bfff,
+            #7c5cff,
+            #e63cff
+        );
+
+    background-size:
+        300% 300%;
+
+    animation:
+        rainbow 2s linear infinite;
+
+    text-shadow:
+        0 0 8px black;
+}
+
+
+@keyframes shake {
+
+    0% {
+        transform:
+            rotate(0)
+            scale(1);
+    }
+
+    20% {
+        transform:
+            rotate(10deg)
+            scale(1.08);
+    }
+
+    40% {
+        transform:
+            rotate(-12deg)
+            scale(.96);
+    }
+
+    60% {
+        transform:
+            rotate(9deg)
+            scale(1.06);
+    }
+
+    80% {
+        transform:
+            rotate(-5deg);
+    }
+
+    100% {
+        transform:
+            rotate(0);
+    }
+}
+
+
+@keyframes rainbow {
+
+    0% {
+        background-position:
+            0% 50%;
+    }
+
+    100% {
+        background-position:
+            300% 50%;
+    }
+}
+
+
+button {
+
+    border: none;
+
+    border-radius: 12px;
+
+    padding: 12px 16px;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    color: white;
+
+    background:
+        linear-gradient(
+            90deg,
+            #6657ff,
+            #9a55ff
+        );
+
+    box-shadow:
+        0 5px 14px
+        rgba(88,69,255,.3);
+
+    transition:
+        transform .15s,
+        opacity .15s;
+}
+
+
+button:hover {
+
+    transform:
+        translateY(-2px);
+}
+
+
+button:disabled {
+
+    opacity: .45;
+
+    cursor: not-allowed;
+
+    transform: none;
+}
+
+
+#rollBtn {
+
+    width: 100%;
+
+    font-size: 19px;
+
+    padding: 14px;
+}
+
+
+#abilityCard {
+
+    margin-top: 12px;
+
+    background: #202442;
+
+    border-radius: 12px;
+
+    padding: 12px;
+
+    min-height: 78px;
+}
+
+
+.ability-name {
+
+    font-weight: bold;
+
+    font-size: 18px;
+}
+
+
+.small {
+
+    font-size: 13px;
+
+    opacity: .8;
+}
+
+
+#log {
+
+    height: 235px;
+
+    overflow: auto;
+
+    background: #0b0d19;
+
+    border-radius: 12px;
+
+    padding: 12px;
+
+    font-size: 14px;
+
+    line-height: 1.5;
+}
+
+
+.good {
+
+    color: #83f38f;
+}
+
+
+.bad {
+
+    color: #ff8b8b;
+}
+
+
+.rainbowText {
+
+    font-weight: bold;
+
+    background:
+        linear-gradient(
+            90deg,
+            #ff4b61,
+            #ffb32f,
+            #ffff5a,
+            #48f088,
+            #45c5ff,
+            #a879ff
+        );
+
+    -webkit-background-clip:
+        text;
+
+    color: transparent;
+}
+
+
+#abilitiesList {
+
+    display: grid;
+
+    gap: 7px;
+
+    margin-top: 10px;
+}
+
+
+.ability-row {
+
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    gap: 10px;
+
+    padding: 8px 10px;
+
+    border-radius: 10px;
+
+    background: #20233d;
+
+    font-size: 13px;
+}
+
+
+.footerActions {
+
+    display: flex;
+
+    gap: 10px;
+
+    margin-top: 12px;
+}
+
+
+@media(max-width:720px) {
+
+    #content {
+
+        grid-template-columns:
+            1fr;
+    }
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div id="game">
+
+<header>
+
+<div>
+
+<h1>
+🎲 Dice Wizard
+</h1>
+
+<div class="subtitle">
+Master the six faces.
+Discover the impossible seventh.
+</div>
+
+</div>
+
+<div id="battleLabel">
+Battle 1
+</div>
+
+</header>
+
+
+<div id="content">
+
+
+<!-- PLAYER -->
+
+<div class="panel">
+
+<h2>
+🧙 Wizard
+</h2>
+
+
+<div>
+
+HP:
+
+<span id="playerHpText">
+</span>
+
+</div>
+
+
+<div class="bar">
+
+<div
+id="playerHpFill"
+class="fill">
+</div>
+
+</div>
+
+
+<div>
+XP
+</div>
+
+
+<div class="bar">
+
+<div
+id="xpFill"
+class="fill">
+</div>
+
+</div>
+
+
+<div class="stats">
+
+<div>
+Level:
+<b id="levelText">
+1
+</b>
+</div>
+
+
+<div>
+Attack Bonus:
+<b id="attackText">
+0
+</b>
+</div>
+
+
+<div>
+Victories:
+<b id="victoryText">
+0
+</b>
+</div>
+
+
+<div>
+Rainbow:
+<b id="rainbowStatus">
+Locked
+</b>
+</div>
+
+</div>
+
+
+<h3>
+Your Die
+</h3>
+
+
+<div id="die">
+?
+</div>
+
+
+<button id="rollBtn">
+
+🎲 ROLL THE DIE
+
+</button>
+
+
+<div id="abilityCard">
+
+Roll to summon a magical ability.
+
+</div>
+
+</div>
+
+
+
+<!-- MONSTER -->
+
+<div class="panel">
+
+<h2 id="monsterName">
+
+Monster
+
+</h2>
+
+
+<div
+class="monster"
+id="monsterEmoji">
+
+👾
+
+</div>
+
+
+<div>
+
+HP:
+
+<span id="monsterHpText">
+</span>
+
+</div>
+
+
+<div class="bar">
+
+<div
+id="monsterHpFill"
+class="fill">
+</div>
+
+</div>
+
+
+<div
+class="small"
+id="monsterDesc">
+
+</div>
+
+
+<h3>
+
+Battle Log
+
+</h3>
+
+
+<div id="log">
+</div>
+
+
+<div class="footerActions">
+
+
+<button id="healBtn">
+
+✨ Rest
+
+</button>
+
+
+<button id="restartBtn">
+
+↻ Restart
+
+</button>
+
+
+</div>
+
+</div>
+
+
+
+<!-- ABILITY CHANCES -->
+
+<div
+class="panel"
+style="grid-column:1/-1">
+
+
+<h3>
+
+🎲 Ability Chances
+
+</h3>
+
+
+<div id="abilitiesList">
+</div>
+
+
+<div
+class="small"
+style="margin-top:8px;">
+
+
+The secret seventh face has only a
+1% chance of appearing.
+
+Once discovered,
+Rainbow Magic is permanently unlocked.
+
+
+</div>
+
+</div>
+
+
+</div>
+
+</div>
+
+
+
+<script>
+
+
+/* ================================
+   SPELLS
+================================ */
+
+
+const abilities = [
+
+{
+
+face:1,
+
+name:"Spark Bolt",
+
+weight:30,
+
+damage:[6,10],
+
+desc:
+"A quick burst of crackling magic."
+
+},
+
+
+{
+
+face:2,
+
+name:"Stone Shards",
+
+weight:24,
+
+damage:[9,13],
+
+desc:
+"Jagged stones blast from the ground."
+
+},
+
+
+{
+
+face:3,
+
+name:"Frost Lance",
+
+weight:18,
+
+damage:[12,17],
+
+desc:
+"Piercing ice magic with solid damage."
+
+},
+
+
+{
+
+face:4,
+
+name:"Fire Nova",
+
+weight:14,
+
+damage:[16,22],
+
+desc:
+"A powerful explosion of flame."
+
+},
+
+
+{
+
+face:5,
+
+name:"Thunder Judgment",
+
+weight:9,
+
+damage:[22,30],
+
+desc:
+"Lightning crashes from above."
+
+},
+
+
+{
+
+face:6,
+
+name:"Void Cataclysm",
+
+weight:4,
+
+damage:[32,44],
+
+desc:
+"Extremely rare destructive magic."
+
+},
+
+
+{
+
+face:7,
+
+name:"RAINBOW ASCENSION",
+
+weight:1,
+
+damage:[55,75],
+
+desc:
+"The hidden seventh face. Permanent ultimate magic!"
+
+}
+
+];
+
+
+
+/* ================================
+   MONSTERS
+================================ */
+
+
+const monsterTemplates = [
+
+{
+
+name:
+"Slime of Misfortune",
+
+emoji:
+"🟢",
+
+baseHp:
+38,
+
+attack:
+[4,8],
+
+desc:
+"Weak, wobbly, and surprisingly rude."
+
+},
+
+
+{
+
+name:
+"Goblin Dice-Thief",
+
+emoji:
+"👺",
+
+baseHp:
+50,
+
+attack:
+[6,10],
+
+desc:
+"It wants your spell die."
+
+},
+
+
+{
+
+name:
+"Bone Warlock",
+
+emoji:
+"💀",
+
+baseHp:
+65,
+
+attack:
+[8,13],
+
+desc:
+"A dead wizard who cheated fate."
+
+},
+
+
+{
+
+name:
+"Crystal Golem",
+
+emoji:
+"🗿",
+
+baseHp:
+80,
+
+attack:
+[10,15],
+
+desc:
+"Heavy armor and crushing fists."
+
+},
+
+
+{
+
+name:
+"Chaos Dragon",
+
+emoji:
+"🐉",
+
+baseHp:
+105,
+
+attack:
+[12,18],
+
+desc:
+"A dragon that feeds on bad rolls."
+
+},
+
+
+{
+
+name:
+"Lord Hexagon",
+
+emoji:
+"👁️",
+
+baseHp:
+130,
+
+attack:
+[14,21],
+
+desc:
+"Keeper of the forbidden seventh face."
+
+}
+
+];
+
+
+
+let state;
+
+
+
+/* ================================
+   START GAME
+================================ */
+
+
+function resetGame(){
+
+state = {
+
+maxHp:100,
+
+hp:100,
+
+level:1,
+
+xp:0,
+
+xpNeed:50,
+
+attackBonus:0,
+
+victories:0,
+
+battle:1,
+
+rainbowUnlocked:false,
+
+restUsed:false,
+
+monster:null,
+
+busy:false
+
+};
+
+
+document.getElementById("log").innerHTML="";
+
+
+spawnMonster();
+
+
+addLog(
+"Your quest begins. The die chooses your magic."
+);
+
+
+updateUI();
+
+}
+
+
+
+/* ================================
+   CREATE MONSTER
+================================ */
+
+
+function spawnMonster(){
+
+const index =
+Math.min(
+state.battle-1,
+monsterTemplates.length-1
+);
+
+
+const template =
+monsterTemplates[index];
+
+
+const scale =
+1+(state.battle-1)*0.14;
+
+
+state.monster = {
+
+...template,
+
+maxHp:
+Math.round(
+template.baseHp*scale
+),
+
+hp:
+Math.round(
+template.baseHp*scale
+),
+
+attack:[
+
+Math.round(
+template.attack[0]*scale
+),
+
+Math.round(
+template.attack[1]*scale
+)
+
+]
+
+};
+
+
+/*
+IMPORTANT FIX:
+
+Every new battle gives
+the wizard another Rest.
+*/
+
+state.restUsed = false;
+
+}
+
+
+
+/* ================================
+   ROLL RANDOM ABILITY
+================================ */
+
+
+function weightedRoll(){
+
+
+/*
+If Rainbow has already
+been discovered,
+it becomes much more common.
+*/
+
+
+if(state.rainbowUnlocked){
+
+
+if(Math.random()<0.30){
+
+return abilities[6];
+
+}
+
+
+const normal =
+abilities.slice(0,6);
+
+
+const total =
+normal.reduce(
+(s,a)=>s+a.weight,
+0
+);
+
+
+let r =
+Math.random()*total;
+
+
+for(const a of normal){
+
+r -= a.weight;
+
+if(r<=0){
+
+return a;
+
+}
+
+}
+
+}
+
+
+/*
+Before unlocking Rainbow:
+
+Face 7 has exactly
+a 1% chance.
+*/
+
+
+else {
+
+
+let r =
+Math.random()*100;
+
+
+for(const a of abilities){
+
+r -= a.weight;
+
+if(r<0){
+
+return a;
+
+}
+
+}
+
+}
+
+
+return abilities[0];
+
+}
+
+
+
+/* ================================
+   RANDOM NUMBER
+================================ */
+
+
+function rand(min,max){
+
+return Math.floor(
+
+Math.random() *
+(max-min+1)
+
+)+min;
+
+}
+
+
+
+/* ================================
+   PLAYER ATTACK
+================================ */
+
+
+function rollDie(){
+
+
+if(
+
+state.busy ||
+
+state.hp<=0 ||
+
+state.monster.hp<=0
+
+){
+
+return;
+
+}
+
+
+state.busy=true;
+
+
+const die =
+document.getElementById("die");
+
+
+die.classList.remove("rainbow");
+
+die.classList.add("rolling");
+
+
+die.textContent =
+
+["⚀","⚁","⚂","⚃","⚄","⚅"]
+
+[rand(0,5)];
+
+
+
+setTimeout(()=>{
+
+
+const ability =
+weightedRoll();
+
+
+die.classList.remove("rolling");
+
+
+
+/* SECRET FACE 7 */
+
+
+if(ability.face===7){
+
+
+die.textContent="7";
+
+
+die.classList.add("rainbow");
+
+
+if(!state.rainbowUnlocked){
+
+
+state.rainbowUnlocked=true;
+
+
+addLog(
+
+"🌈 THE SECRET SEVENTH FACE APPEARS! Rainbow Magic is permanently unlocked!",
+
+"rainbowText"
+
+);
+
+
+}
+
+
+else {
+
+
+addLog(
+
+"🌈 Rainbow Ascension returns!",
+
+"rainbowText"
+
+);
+
+
+}
+
+
+}
+
+
+else {
+
+
+die.textContent =
+ability.face;
+
+
+}
+
+
+
+/* DAMAGE */
+
+
+let damage =
+
+rand(
+
+ability.damage[0],
+
+ability.damage[1]
+
+)
+
++
+
+state.attackBonus;
+
+
+
+/*
+Rainbow gives a permanent
+small damage bonus.
+*/
+
+
+if(
+
+state.rainbowUnlocked &&
+
+ability.face!==7
+
+){
+
+
+damage +=
+
+Math.floor(
+state.level/2
+);
+
+
+}
+
+
+
+state.monster.hp =
+
+Math.max(
+
+0,
+
+state.monster.hp-damage
+
+);
+
+
+
+document.getElementById(
+"abilityCard"
+).innerHTML =
+
+
+`<div class="${
+ability.face===7
+?
+'rainbowText'
+:
+'ability-name'
+}">
+
+${ability.name}
+
+</div>
+
+<div>
+
+${ability.desc}
+
+</div>
+
+<div class="small">
+
+Damage dealt:
+${damage}
+
+</div>`;
+
+
+
+addLog(
+
+`You rolled ${ability.face}: ${ability.name} deals ${damage} damage.`,
+
+ability.face===7
+?
+"rainbowText"
+:
+"good"
+
+);
+
+
+updateUI();
+
+
+
+if(state.monster.hp<=0){
+
+
+winBattle();
+
+
+}
+
+
+else {
+
+
+setTimeout(
+
+monsterTurn,
+
+550
+
+);
+
+
+}
+
+
+},500);
+
+}
+
+
+
+/* ================================
+   MONSTER ATTACK
+================================ */
+
+
+function monsterTurn(){
+
+
+if(state.monster.hp<=0){
+
+return;
+
+}
+
+
+let dmg =
+
+rand(
+
+state.monster.attack[0],
+
+state.monster.attack[1]
+
+);
+
+
+
+/*
+Rainbow Ward can
+block an attack.
+*/
+
+
+if(
+
+state.rainbowUnlocked &&
+
+Math.random()<0.12
+
+){
+
+
+addLog(
+
+"🌈 Rainbow Ward blocks the monster's attack!",
+
+"rainbowText"
+
+);
+
+
+dmg=0;
+
+}
+
+
+
+state.hp =
+
+Math.max(
+
+0,
+
+state.hp-dmg
+
+);
+
+
+
+if(dmg>0){
+
+
+addLog(
+
+`${state.monster.name} hits you for ${dmg} damage.`,
+
+"bad"
+
+);
+
+
+}
+
+
+updateUI();
+
+
+
+if(state.hp<=0){
+
+
+addLog(
+
+"You have fallen. The die grows silent.",
+
+"bad"
+
+);
+
+
+document.getElementById(
+"rollBtn"
+).disabled=true;
+
+
+}
+
+
+
+state.busy=false;
+
+}
+
+
+
+/* ================================
+   WIN BATTLE
+================================ */
+
+
+function winBattle(){
+
+
+state.victories++;
+
+
+const gained =
+
+28 + state.battle*8;
+
+
+state.xp += gained;
+
+
+
+addLog(
+
+`🏆 ${state.monster.name} defeated! +${gained} XP.`,
+
+"good"
+
+);
+
+
+
+/* LEVEL UP */
+
+
+while(
+
+state.xp >= state.xpNeed
+
+){
+
+
+state.xp -=
+state.xpNeed;
+
+
+state.level++;
+
+
+state.xpNeed =
+
+Math.round(
+
+state.xpNeed*1.3
+
+);
+
+
+state.maxHp += 15;
+
+
+state.hp =
+
+Math.min(
+
+state.maxHp,
+
+state.hp+30
+
+);
+
+
+state.attackBonus += 3;
+
+
+addLog(
+
+`⬆️ Level up! You are now level ${state.level}. +15 max HP, +3 attack.`,
+
+"good"
+
+);
+
+
+}
+
+
+
+updateUI();
+
+
+
+setTimeout(()=>{
+
+
+state.battle++;
+
+
+/*
+NEW:
+
+Winning restores
+25% maximum HP.
+*/
+
+
+const battleHeal =
+
+Math.round(
+
+state.maxHp*0.25
+
+);
+
+
+state.hp =
+
+Math.min(
+
+state.maxHp,
+
+state.hp+battleHeal
+
+);
+
+
+
+spawnMonster();
+
+
+
+addLog(
+
+`❤️ Victory restores ${battleHeal} HP.`,
+
+"good"
+
+);
+
+
+addLog(
+
+`⚔️ Battle ${state.battle} begins against ${state.monster.name}.`
+
+);
+
+
+addLog(
+
+"✨ Your Rest ability has refreshed.",
+
+"good"
+
+);
+
+
+
+state.busy=false;
+
+
+updateUI();
+
+
+},1000);
+
+}
+
+
+
+/* ================================
+   REST
+================================ */
+
+
+function rest(){
+
+
+if(
+
+state.restUsed ||
+
+state.hp<=0
+
+){
+
+return;
+
+}
+
+
+/*
+You can Rest once
+PER BATTLE.
+*/
+
+
+state.restUsed=true;
+
+
+
+const heal =
+
+Math.round(
+
+state.maxHp*0.25
+
+);
+
+
+
+state.hp =
+
+Math.min(
+
+state.maxHp,
+
+state.hp+heal
+
+);
+
+
+
+addLog(
+
+`✨ You rest and restore ${heal} HP.`,
+
+"good"
+
+);
+
+
+updateUI();
+
+}
+
+
+
+/* ================================
+   UPDATE SCREEN
+================================ */
+
+
+function updateUI(){
+
+
+document.getElementById(
+"playerHpText"
+).textContent =
+
+`${state.hp} / ${state.maxHp}`;
+
+
+
+document.getElementById(
+"playerHpFill"
+).style.width =
+
+`${100*state.hp/state.maxHp}%`;
+
+
+
+document.getElementById(
+"monsterName"
+).textContent =
+
+state.monster.name;
+
+
+
+document.getElementById(
+"monsterEmoji"
+).textContent =
+
+state.monster.emoji;
+
+
+
+document.getElementById(
+"monsterHpText"
+).textContent =
+
+`${state.monster.hp} / ${state.monster.maxHp}`;
+
+
+
+document.getElementById(
+"monsterHpFill"
+).style.width =
+
+`${100*state.monster.hp/state.monster.maxHp}%`;
+
+
+
+document.getElementById(
+"monsterDesc"
+).textContent =
+
+state.monster.desc;
+
+
+
+document.getElementById(
+"levelText"
+).textContent =
+
+state.level;
+
+
+
+document.getElementById(
+"attackText"
+).textContent =
+
+"+" + state.attackBonus;
+
+
+
+document.getElementById(
+"victoryText"
+).textContent =
+
+state.victories;
+
+
+
+document.getElementById(
+"rainbowStatus"
+).innerHTML =
+
+state.rainbowUnlocked
+
+?
+
+'<span class="rainbowText">UNLOCKED</span>'
+
+:
+
+'Locked';
+
+
+
+document.getElementById(
+"xpFill"
+).style.width =
+
+`${100*state.xp/state.xpNeed}%`;
+
+
+
+document.getElementById(
+"battleLabel"
+).textContent =
+
+`Battle ${state.battle}`;
+
+
+
+document.getElementById(
+"healBtn"
+).disabled =
+
+state.restUsed ||
+
+state.hp<=0;
+
+
+
+document.getElementById(
+"healBtn"
+).textContent =
+
+state.restUsed
+
+?
+
+"✨ Rest Used"
+
+:
+
+"✨ Rest (1 per battle)";
+
+
+
+document.getElementById(
+"rollBtn"
+).disabled =
+
+state.hp<=0 ||
+
+state.busy;
+
+}
+
+
+
+/* ================================
+   BATTLE LOG
+================================ */
+
+
+function addLog(text,cls=""){
+
+
+const log =
+
+document.getElementById("log");
+
+
+const div =
+
+document.createElement("div");
+
+
+div.textContent=text;
+
+
+if(cls){
+
+div.className=cls;
+
+}
+
+
+log.appendChild(div);
+
+
+log.scrollTop=
+
+log.scrollHeight;
+
+}
+
+
+
+/* ================================
+   SHOW SPELL CHANCES
+================================ */
+
+
+function renderAbilityList(){
+
+
+const list =
+
+document.getElementById(
+"abilitiesList"
+);
+
+
+list.innerHTML="";
+
+
+abilities.forEach(a=>{
+
+
+const row =
+
+document.createElement("div");
+
+
+row.className=
+
+"ability-row";
+
+
+row.innerHTML =
+
+`<span>
+
+${a.face===7 ? '🌈' : '🎲'}
+
+Face ${a.face}:
+
+<b>
+
+${a.name}
+
+</b>
+
+</span>
+
+<span>
+
+${a.weight}%
+
+</span>`;
+
+
+list.appendChild(row);
+
+
+});
+
+}
+
+
+
+/* ================================
+   BUTTONS
+================================ */
+
+
+document.getElementById(
+"rollBtn"
+).addEventListener(
+
+"click",
+
+rollDie
+
+);
+
+
+document.getElementById(
+"healBtn"
+).addEventListener(
+
+"click",
+
+rest
+
+);
+
+
+document.getElementById(
+"restartBtn"
+).addEventListener(
+
+"click",
+
+resetGame
+
+);
+
+
+
+/* ================================
+   START
+================================ */
+
+
+renderAbilityList();
+
+resetGame();
+
+
+</script>
+
+</body>
+
+</html>
