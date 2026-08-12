@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Escape the Broken Universe</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #050510;
+        font-family: Arial, sans-serif;
+        color: white;
+    }
+
+    canvas {
+        display: block;
+        margin: auto;
+        background: #111;
+        outline: none;
+    }
+
+    #ui {
+        position: absolute;
+        top: 12px;
+        left: 15px;
+        font-size: 20px;
+        text-shadow: 2px 2px 4px black;
+        pointer-events: none;
+    }
+
+    #message {
+        position: absolute;
+        top: 42%;
+        width: 100%;
+        text-align: center;
+        font-size: 40px;
+        font-weight: bold;
+        text-shadow: 3px 3px 8px black;
+        pointer-events: none;
+    }
+
+    #instructions {
+        position: absolute;
+        bottom: 10px;
+        width: 100%;
+        text-align: center;
+        font-size: 16px;
+        opacity: 0.9;
+        pointer-events: none;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="ui"></div>
+<div id="message"></div>
+
+<div id="instructions">
+    A/D or ←/→ = Move &nbsp;&nbsp;
+    W / ↑ / SPACE = Jump &nbsp;&nbsp;
+    R = Restart
+</div>
+
+<canvas
+    id="gameCanvas"
+    width="1000"
+    height="600"
+    tabindex="0">
+</canvas>
+
+<script>
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const ui = document.getElementById("ui");
+const message = document.getElementById("message");
+
+const keys = {};
+
+/* =========================
+   KEYBOARD CONTROLS
+========================= */
+
+canvas.focus();
+
+canvas.addEventListener("click", () => {
+    canvas.focus();
+});
+
+window.addEventListener("keydown", (e) => {
+
+    const key = e.key.toLowerCase();
+
+    keys[key] = true;
+
+    if (e.code === "Space") {
+        keys["space"] = true;
+    }
+
+    if (
+        e.code === "Space" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight"
+    ) {
+        e.preventDefault();
+    }
+
+    if (gameOver && key === "r") {
+        restartLevel();
+    }
+});
+
+window.addEventListener("keyup", (e) => {
+
+    const key = e.key.toLowerCase();
+
+    keys[key] = false;
+
+    if (e.code === "Space") {
+        keys["space"] = false;
+    }
+});
+
+
+/* =========================
+   GAME VARIABLES
+========================= */
+
+let level = 1;
+let gameOver = false;
+let levelComplete = false;
+
+let timer = 0;
+
+const gravity = 0.7;
+
+const player = {
+    x: 50,
+    y: 450,
+    width: 35,
+    height: 50,
+    vx: 0,
+    vy: 0,
+    speed: 6,
+    jumpPower: 14,
+    grounded: false
+};
+
+let platforms = [];
+let portal = {};
+let enemy = null;
+let particles = [];
+let stars = [];
+
+
+/* =========================
+   STAR BACKGROUND
+========================= */
+
+for (let i = 0; i < 150; i++) {
+
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 1
+    });
+}
+
+
+/* =========================
+   LOAD LEVEL
+========================= */
+
+function loadLevel(number) {
+
+    gameOver = false;
+    levelComplete = false;
+
+    message.innerHTML = "";
+
+    enemy = null;
+    particles = [];
+
+    player.vx = 0;
+    player.vy = 0;
+
+    if (number === 1) {
+
+        player.x = 50;
+        player.y = 480;
+
+        platforms = [
+
+            {
+                x: 0,
+                y: 550,
+                w: 1000,
+                h: 50
+            },
+
+            {
+                x: 180,
+                y: 460,
+                w: 150,
+                h: 20
+            },
+
+            {
+                x: 400,
+                y: 390,
+                w: 150,
+                h: 20
+            },
+
+            {
+                x: 620,
+                y: 320,
+                w: 150,
+                h: 20
+            },
+
+            {
+                x: 820,
+                y: 250,
+                w: 130,
+                h: 20
+            }
+        ];
+
+        portal = {
+            x: 860,
+            y: 170,
+            width: 55,
+            height: 80
+        };
+
+        showTemporaryMessage(
+            "UNIVERSE 1<br>THE NEON VOID",
+            1800
+        );
+    }
+
+
+    else if (number === 2) {
+
+        player.x = 50;
+        player.y = 480;
+
+        timer = 20;
+
+        platforms = [
+
+            {
+                x: 0,
+                y: 550,
+                w: 1000,
+                h: 50
+            },
+
+            {
+                x: 180,
+                y: 470,
+                w: 110,
+                h: 20
+            },
+
+            {
+                x: 340,
+                y: 410,
+                w: 110,
+                h: 20
+            },
+
+            {
+                x: 500,
+                y: 350,
+                w: 110,
+                h: 20
+            },
+
+            {
+                x: 660,
+                y: 290,
+                w: 110,
+                h: 20
+            },
+
+            {
+                x: 810,
+                y: 220,
+                w: 150,
+                h: 20
+            }
+        ];
+
+        portal = {
+            x: 860,
+            y: 140,
+            width: 55,
+            height: 80
+        };
+
+        showTemporaryMessage(
+            "UNIVERSE 2<br>REALITY COLLAPSE<br>20 SECONDS!",
+            2000
+        );
+    }
+
+
+    else if (number === 3) {
+
+        player.x = 100;
+        player.y = 480;
+
+        platforms = [
+
+            {
+                x: 0,
+                y: 550,
+                w: 1000,
+                h: 50
+            },
+
+            {
+                x: 250,
+                y: 470,
+                w: 140,
+                h: 20
+            },
+
+            {
+                x: 480,
+                y: 400,
+                w: 120,
+                h: 20
+            },
+
+            {
+                x: 680,
+                y: 330,
+                w: 120,
+                h: 20
+            }
+        ];
+
+        portal = {
+            x: 900,
+            y: 470,
+            width: 55,
+            height: 80
+        };
+
+        enemy = {
+            x: -220,
+            y: 390,
+            width: 180,
+            height: 160,
+            speed: 2.2
+        };
+
+        showTemporaryMessage(
+            "UNIVERSE 3<br>THE HUNT<br>RUN!",
+            2200
+        );
+    }
+
+
+    else if (number === 4) {
+
+        player.x = 50;
+        player.y = 480;
+
+        platforms = [
+
+            {
+                x: 0,
+                y: 550,
+                w: 1000,
+                h: 50
+            },
+
+            {
+                x: 150,
+                y: 470,
+                w: 120,
+                h: 20
+            },
+
+            {
+                x: 350,
+                y: 390,
+                w: 120,
+                h: 20
+            },
+
+            {
+                x: 570,
+                y: 310,
+                w: 120,
+                h: 20
+            },
+
+            {
+                x: 790,
+                y: 230,
+                w: 150,
+                h: 20
+            }
+        ];
+
+        portal = {
+            x: 850,
+            y: 150,
+            width: 55,
+            height: 80
+        };
+
+        showTemporaryMessage(
+            "FINAL UNIVERSE<br>THE FRACTURED CORE",
+            2000
+        );
+    }
+
+
+    else {
+
+        victory();
+    }
+
+    canvas.focus();
+}
+
+
+/* =========================
+   COLLISION
+========================= */
+
+function collision(a, b) {
+
+    return (
+        a.x < b.x + b.w &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.h &&
+        a.y + a.height > b.y
+    );
+}
+
+
+/* =========================
+   UPDATE PLAYER
+========================= */
+
+function updatePlayer() {
+
+    if (gameOver || levelComplete) {
+        return;
+    }
+
+    player.vx = 0;
+
+
+    // LEFT
+
+    if (
+        keys["arrowleft"] ||
+        keys["a"]
+    ) {
+
+        player.vx = -player.speed;
+    }
+
+
+    // RIGHT
+
+    if (
+        keys["arrowright"] ||
+        keys["d"]
+    ) {
+
+        player.vx = player.speed;
+    }
+
+
+    // JUMP
+
+    if (
+        (
+            keys["arrowup"] ||
+            keys["w"] ||
+            keys["space"]
+        )
+        &&
+        player.grounded
+    ) {
+
+        player.vy = -player.jumpPower;
+        player.grounded = false;
+    }
+
+
+    // GRAVITY
+
+    player.vy += gravity;
+
+
+    // HORIZONTAL MOVEMENT
+
+    player.x += player.vx;
+
+
+    // KEEP PLAYER INSIDE SCREEN
+
+    if (player.x < 0) {
+        player.x = 0;
+    }
+
+    if (
+        player.x + player.width >
+        canvas.width
+    ) {
+
+        player.x =
+            canvas.width -
+            player.width;
+    }
+
+
+    // VERTICAL MOVEMENT
+
+    player.y += player.vy;
+
+    player.grounded = false;
+
+
+    // PLATFORM COLLISIONS
+
+    for (let p of platforms) {
+
+        const touching = (
+            player.x < p.x + p.w &&
+            player.x + player.width > p.x &&
+            player.y < p.y + p.h &&
+            player.y + player.height > p.y
+        );
+
+        if (touching) {
+
+            if (
+                player.vy >= 0 &&
+                player.y +
+                player.height -
+                player.vy
+                <=
+                p.y + 10
+            ) {
+
+                player.y =
+                    p.y -
+                    player.height;
+
+                player.vy = 0;
+
+                player.grounded = true;
+            }
+        }
+    }
+
+
+    // FALL OFF WORLD
+
+    if (
+        player.y >
+        canvas.height + 100
+    ) {
+
+        lose(
+            "YOU FELL BETWEEN UNIVERSES"
+        );
+    }
+
+
+    checkPortal();
+}
+
+
+/* =========================
+   PORTAL
+========================= */
+
+function checkPortal() {
+
+    const portalCollisionBox = {
+
+        x: portal.x,
+        y: portal.y,
+        w: portal.width,
+        h: portal.height
+    };
+
+    if (
+        collision(
+            player,
+            portalCollisionBox
+        )
+    ) {
+
+        levelComplete = true;
+
+        createPortalExplosion();
+
+        message.innerHTML =
+            "PORTAL ENTERED!";
+
+        setTimeout(() => {
+
+            level++;
+            loadLevel(level);
+
+        }, 900);
+    }
+}
+
+
+/* =========================
+   TIMER
+========================= */
+
+let lastTime = performance.now();
+
+function updateTimer(now) {
+
+    const delta =
+        (now - lastTime) / 1000;
+
+    lastTime = now;
+
+
+    if (
+        level === 2 &&
+        !gameOver &&
+        !levelComplete
+    ) {
+
+        timer -= delta;
+
+        if (timer <= 0) {
+
+            timer = 0;
+
+            lose(
+                "REALITY COLLAPSED!"
+            );
+        }
+    }
+}
+
+
+/* =========================
+   CHASING MONSTER
+========================= */
+
+function updateEnemy() {
+
+    if (
+        !enemy ||
+        gameOver ||
+        levelComplete
+    ) {
+
+        return;
+    }
+
+
+    enemy.x += enemy.speed;
+
+
+    // It slowly gets faster
+
+    enemy.speed += 0.0015;
+
+
+    const enemyBox = {
+
+        x: enemy.x,
+        y: enemy.y,
+        w: enemy.width,
+        h: enemy.height
+    };
+
+
+    if (
+        collision(
+            player,
+            enemyBox
+        )
+    ) {
+
+        lose(
+            "THE SHADOW CAUGHT YOU"
+        );
+    }
+}
+
+
+/* =========================
+   PORTAL PARTICLES
+========================= */
+
+function createPortalExplosion() {
+
+    for (
+        let i = 0;
+        i < 80;
+        i++
+    ) {
+
+        particles.push({
+
+            x:
+                portal.x +
+                portal.width / 2,
+
+            y:
+                portal.y +
+                portal.height / 2,
+
+            vx:
+                (Math.random() - 0.5)
+                * 12,
+
+            vy:
+                (Math.random() - 0.5)
+                * 12,
+
+            life: 60,
+
+            size:
+                Math.random() * 6 + 2
+        });
+    }
+}
+
+
+function updateParticles() {
+
+    for (let p of particles) {
+
+        p.x += p.vx;
+
+        p.y += p.vy;
+
+        p.life--;
+
+
+        ctx.fillStyle =
+            `rgba(
+                100,
+                200,
+                255,
+                ${p.life / 60}
+            )`;
+
+
+        ctx.fillRect(
+            p.x,
+            p.y,
+            p.size,
+            p.size
+        );
+    }
+
+
+    particles =
+        particles.filter(
+            p => p.life > 0
+        );
+}
+
+
+/* =========================
+   BACKGROUND
+========================= */
+
+function drawBackground() {
+
+
+    /* LEVEL 1 */
+
+    if (level === 1) {
+
+        ctx.fillStyle =
+            "#08001d";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        ctx.fillStyle =
+            "white";
+
+
+        for (let s of stars) {
+
+            ctx.fillRect(
+                s.x,
+                s.y,
+                s.size,
+                s.size
+            );
+        }
+    }
+
+
+    /* LEVEL 2 */
+
+    else if (level === 2) {
+
+        ctx.fillStyle =
+            "#381000";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        for (
+            let i = 0;
+            i < 25;
+            i++
+        ) {
+
+            ctx.strokeStyle =
+                "rgba(255,80,0,0.4)";
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                Math.random()
+                * canvas.width,
+
+                Math.random()
+                * canvas.height
+            );
+
+            ctx.lineTo(
+                Math.random()
+                * canvas.width,
+
+                Math.random()
+                * canvas.height
+            );
+
+            ctx.stroke();
+        }
+    }
+
+
+    /* LEVEL 3 */
+
+    else if (level === 3) {
+
+        ctx.fillStyle =
+            "#040406";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        ctx.fillStyle =
+            "#151520";
+
+
+        for (
+            let i = 0;
+            i < 20;
+            i++
+        ) {
+
+            let x =
+                (
+                    i * 90 -
+                    Date.now() / 20
+                )
+                % 1200;
+
+
+            ctx.fillRect(
+                x,
+                400,
+                30,
+                150
+            );
+        }
+    }
+
+
+    /* LEVEL 4 */
+
+    else {
+
+        ctx.fillStyle =
+            "#120020";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        ctx.strokeStyle =
+            "#be5cff";
+
+
+        for (
+            let i = 0;
+            i < 10;
+            i++
+        ) {
+
+            ctx.beginPath();
+
+
+            ctx.arc(
+                canvas.width / 2,
+                canvas.height / 2,
+
+                30 +
+                i * 40 +
+                Math.sin(
+                    Date.now() / 200
+                ) * 10,
+
+                0,
+                Math.PI * 2
+            );
+
+
+            ctx.stroke();
+        }
+    }
+}
+
+
+/* =========================
+   PLATFORMS
+========================= */
+
+function drawPlatforms() {
+
+    for (let p of platforms) {
+
+        if (level === 1) {
+
+            ctx.fillStyle =
+                "#00aaff";
+        }
+
+        else if (level === 2) {
+
+            ctx.fillStyle =
+                "#ff6600";
+        }
+
+        else if (level === 3) {
+
+            ctx.fillStyle =
+                "#555";
+        }
+
+        else {
+
+            ctx.fillStyle =
+                "#8c2cff";
+        }
+
+
+        ctx.fillRect(
+            p.x,
+            p.y,
+            p.w,
+            p.h
+        );
+    }
+}
+
+
+/* =========================
+   DRAW PLAYER
+========================= */
+
+function drawPlayer() {
+
+    // Body
+
+    ctx.fillStyle = "#ffffff";
+
+    ctx.fillRect(
+        player.x,
+        player.y,
+        player.width,
+        player.height
+    );
+
+
+    // Eyes
+
+    ctx.fillStyle = "#00ffff";
+
+
+    ctx.fillRect(
+        player.x + 7,
+        player.y + 10,
+        7,
+        7
+    );
+
+
+    ctx.fillRect(
+        player.x + 22,
+        player.y + 10,
+        7,
+        7
+    );
+
+
+    // Little legs
+
+    ctx.fillStyle = "#bbbbbb";
+
+
+    ctx.fillRect(
+        player.x + 4,
+        player.y + 45,
+        10,
+        8
+    );
+
+
+    ctx.fillRect(
+        player.x + 21,
+        player.y + 45,
+        10,
+        8
+    );
+}
+
+
+/* =========================
+   DRAW PORTAL
+========================= */
+
+function drawPortal() {
+
+    const pulse =
+        Math.sin(
+            Date.now() / 150
+        ) * 5;
+
+
+    ctx.strokeStyle =
+        "#00ffff";
+
+    ctx.lineWidth = 8;
+
+
+    ctx.beginPath();
+
+
+    ctx.ellipse(
+
+        portal.x +
+        portal.width / 2,
+
+        portal.y +
+        portal.height / 2,
+
+        portal.width / 2 +
+        pulse,
+
+        portal.height / 2 +
+        pulse,
+
+        0,
+
+        0,
+
+        Math.PI * 2
+    );
+
+
+    ctx.stroke();
+
+
+    ctx.fillStyle =
+        "rgba(0,255,255,0.25)";
+
+    ctx.fill();
+}
+
+
+/* =========================
+   DRAW MONSTER
+========================= */
+
+function drawEnemy() {
+
+    if (!enemy) {
+        return;
+    }
+
+
+    // Shadow body
+
+    ctx.fillStyle =
+        "#090009";
+
+    ctx.fillRect(
+        enemy.x,
+        enemy.y,
+        enemy.width,
+        enemy.height
+    );
+
+
+    // Red eyes
+
+    ctx.fillStyle =
+        "#ff0000";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        enemy.x + 120,
+        enemy.y + 45,
+        9,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        enemy.x + 150,
+        enemy.y + 45,
+        9,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+}
+
+
+/* =========================
+   USER INTERFACE
+========================= */
+
+function updateUI() {
+
+    let title = "";
+
+
+    if (level === 1) {
+
+        title =
+            "THE NEON VOID";
+    }
+
+
+    else if (level === 2) {
+
+        title =
+            "REALITY COLLAPSE";
+    }
+
+
+    else if (level === 3) {
+
+        title =
+            "THE HUNT";
+    }
+
+
+    else if (level === 4) {
+
+        title =
+            "THE FRACTURED CORE";
+    }
+
+
+    ui.innerHTML =
+        "Universe " +
+        level +
+        " — " +
+        title;
+
+
+    if (level === 2) {
+
+        ui.innerHTML +=
+            "<br>TIME: " +
+            timer.toFixed(1);
+    }
+
+
+    if (level === 3) {
+
+        ui.innerHTML +=
+            "<br>RUN!";
+    }
+}
+
+
+/* =========================
+   GAME OVER
+========================= */
+
+function lose(text) {
+
+    gameOver = true;
+
+
+    message.innerHTML =
+        text +
+        "<br>" +
+        "<span style='font-size:20px'>" +
+        "Press R to retry" +
+        "</span>";
+}
+
+
+function restartLevel() {
+
+    loadLevel(level);
+}
+
+
+/* =========================
+   VICTORY
+========================= */
+
+function victory() {
+
+    gameOver = true;
+
+    platforms = [];
+
+    enemy = null;
+
+
+    message.innerHTML =
+
+        "YOU ESCAPED THE BROKEN UNIVERSE!" +
+
+        "<br>" +
+
+        "<span style='font-size:22px'>" +
+
+        "But something followed you..." +
+
+        "</span>";
+
+
+    ui.innerHTML =
+        "ESCAPE COMPLETE";
+}
+
+
+/* =========================
+   TEMPORARY MESSAGE
+========================= */
+
+function showTemporaryMessage(
+    text,
+    time
+) {
+
+    message.innerHTML = text;
+
+
+    setTimeout(() => {
+
+        if (
+            !gameOver &&
+            !levelComplete
+        ) {
+
+            message.innerHTML = "";
+        }
+
+    }, time);
+}
+
+
+/* =========================
+   MAIN GAME LOOP
+========================= */
+
+function gameLoop(now) {
+
+    updateTimer(now);
+
+    drawBackground();
+
+    updatePlayer();
+
+    updateEnemy();
+
+    drawPlatforms();
+
+    drawPortal();
+
+    drawEnemy();
+
+    drawPlayer();
+
+    updateParticles();
+
+    updateUI();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+
+/* =========================
+   START GAME
+========================= */
+
+loadLevel(1);
+
+requestAnimationFrame(
+    gameLoop
+);
+
+</script>
+
+</body>
+</html>
