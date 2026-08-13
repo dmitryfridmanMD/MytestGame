@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relics of Reality</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #07111f;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+  }
+  #wrap {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    position: relative;
+  }
+  canvas {
+    width: min(100vw, 1200px);
+    height: auto;
+    max-height: 100vh;
+    border: 3px solid #d6f4ff;
+    box-shadow: 0 0 30px rgba(85, 214, 255, 0.35);
+    background: #111;
+    image-rendering: pixelated;
+  }
+  #help {
+    position: fixed;
+    left: 12px;
+    bottom: 10px;
+    background: rgba(0,0,0,.55);
+    padding: 8px 11px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    pointer-events: none;
+  }
+  #mobileControls {
+    display: none;
+    position: fixed;
+    inset: auto 0 8px 0;
+    justify-content: space-between;
+    padding: 0 12px;
+    pointer-events: none;
+  }
+  .pad, .actions {
+    display: grid;
+    gap: 6px;
+    pointer-events: auto;
+  }
+  .pad {
+    grid-template-columns: 52px 52px 52px;
+    grid-template-rows: 52px 52px;
+  }
+  .pad button:nth-child(1) { grid-column: 2; }
+  .pad button:nth-child(2) { grid-column: 1; }
+  .pad button:nth-child(3) { grid-column: 2; }
+  .pad button:nth-child(4) { grid-column: 3; }
+  button {
+    border: 1px solid rgba(255,255,255,.7);
+    border-radius: 12px;
+    background: rgba(20,30,50,.72);
+    color: white;
+    font-size: 22px;
+    touch-action: none;
+  }
+  .actions {
+    grid-template-columns: 70px;
+    align-content: end;
+  }
+  .actions button { height: 62px; font-size: 16px; }
+  @media (pointer: coarse) {
+    #mobileControls { display: flex; }
+    #help { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1200" height="700"></canvas>
+</div>
+
+<div id="help">
+  Move: WASD / Arrow Keys<br>
+  Attack: Space<br>
+  Interact / Activate: E<br>
+  Restart after defeat: R
+</div>
+
+<div id="mobileControls">
+  <div class="pad">
+    <button data-key="ArrowUp">▲</button>
+    <button data-key="ArrowLeft">◀</button>
+    <button data-key="ArrowDown">▼</button>
+    <button data-key="ArrowRight">▶</button>
+  </div>
+  <div class="actions">
+    <button data-key="Space">ATTACK</button>
+    <button data-key="KeyE">USE</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const keys = Object.create(null);
+
+  const REGIONS = [
+    {
+      name: "Sunken Pyramid",
+      subtitle: "Recover the Solar Scarab",
+      bg: ["#d49a36", "#e9c66d"],
+      floor: "#c68a2e",
+      accent: "#ffe06d",
+      obstacle: "#9b6222",
+      artifactName: "Solar Scarab",
+      artifactColor: "#ffd447",
+      enemyType: "mummy"
+    },
+    {
+      name: "Abyssal Ocean",
+      subtitle: "Recover the Tide Pearl",
+      bg: ["#063c70", "#0c87a3"],
+      floor: "#075b78",
+      accent: "#54e8ff",
+      obstacle: "#063d56",
+      artifactName: "Tide Pearl",
+      artifactColor: "#6ff4ff",
+      enemyType: "eel"
+    },
+    {
+      name: "Crystal Caves",
+      subtitle: "Recover the Echo Crystal",
+      bg: ["#281858", "#6a2d91"],
+      floor: "#392467",
+      accent: "#d884ff",
+      obstacle: "#211040",
+      artifactName: "Echo Crystal",
+      artifactColor: "#f090ff",
+      enemyType: "golem"
+    },
+    {
+      name: "The Fractured Nexus",
+      subtitle: "Build the Reality Engine",
+      bg: ["#100e21", "#41145e"],
+      floor: "#181427",
+      accent: "#ff5ff7",
+      obstacle: "#0b0912",
+      artifactName: "",
+      artifactColor: "#ffffff",
+      enemyType: "voidling"
+    }
+  ];
+
+  let state;
+  let player;
+  let enemies = [];
+  let projectiles = [];
+  let enemyProjectiles = [];
+  let particles = [];
+  let pickups = [];
+  let obstacles = [];
+  let artifact = null;
+  let portal = null;
+  let boss = null;
+  let machine = null;
+  let message = "";
+  let messageTimer = 0;
+  let screenShake = 0;
+  let lastTime = performance.now();
+
+  function resetGame() {
+    state = {
+      region: 0,
+      artifacts: [],
+      score: 0,
+      gameOver: false,
+      victory: false,
+      regionComplete: false,
+      bossIntro: false,
+      machineBuilt: false
+    };
+
+    player = {
+      x: 100,
+      y: H / 2,
+      r: 19,
+      speed: 255,
+      hp: 100,
+      maxHp: 100,
+      damage: 24,
+      attackCooldown: 0,
+      invuln: 0,
+      facingX: 1,
+      facingY: 0
+    };
+
+    loadRegion(0);
+    setMessage("Find the three artifacts and save reality!", 3.2);
+  }
+
+  function loadRegion(index) {
+    state.region = index;
+    state.regionComplete = false;
+    enemies = [];
+    projectiles = [];
+    enemyProjectiles = [];
+    particles = [];
+    pickups = [];
+    obstacles = [];
+    artifact = null;
+    portal = null;
+    boss = null;
+    machine = null;
+
+    player.x = 100;
+    player.y = H / 2;
+    player.hp = Math.min(player.maxHp, player.hp + 30);
+    player.attackCooldown = 0;
+    player.invuln = 1;
+
+    createObstacles(index);
+
+    if (index < 3) {
+      spawnRegionEnemies(index);
+    } else {
+      beginFinalRegion();
+    }
+  }
+
+  function createObstacles(index) {
+    if (index === 0) {
+      obstacles = [
+        {x: 260, y: 110, w: 120, h: 180},
+        {x: 260, y: 410, w: 120, h: 180},
+        {x: 500, y: 250, w: 140, h: 200},
+        {x: 770, y: 100, w: 130, h: 160},
+        {x: 770, y: 440, w: 130, h: 160}
+      ];
+    } else if (index === 1) {
+      obstacles = [
+        {x: 250, y: 80, w: 80, h: 230},
+        {x: 250, y: 410, w: 80, h: 210},
+        {x: 500, y: 150, w: 100, h: 400},
+        {x: 760, y: 70, w: 90, h: 250},
+        {x: 760, y: 420, w: 90, h: 210}
+      ];
+    } else if (index === 2) {
+      obstacles = [
+        {x: 220, y: 150, w: 110, h: 110},
+        {x: 220, y: 440, w: 110, h: 110},
+        {x: 470, y: 70, w: 130, h: 170},
+        {x: 470, y: 460, w: 130, h: 170},
+        {x: 740, y: 230, w: 150, h: 240}
+      ];
+    } else {
+      obstacles = [
+        {x: 210, y: 110, w: 90, h: 160},
+        {x: 210, y: 430, w: 90, h: 160},
+        {x: 900, y: 110, w: 90, h: 160},
+        {x: 900, y: 430, w: 90, h: 160}
+      ];
+    }
+  }
+
+  function spawnRegionEnemies(region) {
+    const count = 6 + region * 2;
+    for (let i = 0; i < count; i++) {
+      const pos = randomFreePosition(370, 1070);
+      enemies.push(makeEnemy(pos.x, pos.y, region));
+    }
+  }
+
+  function makeEnemy(x, y, region) {
+    const types = [
+      {hp: 52, speed: 75, r: 18, damage: 12, color: "#d8d2b3"},
+      {hp: 66, speed: 105, r: 17, damage: 14, color: "#42e4d6"},
+      {hp: 90, speed: 65, r: 22, damage: 18, color: "#be70ff"}
+    ];
+    const t = types[region];
+    return {
+      x, y,
+      r: t.r,
+      hp: t.hp,
+      maxHp: t.hp,
+      speed: t.speed,
+      damage: t.damage,
+      color: t.color,
+      attackCooldown: Math.random(),
+      flash: 0,
+      phase: Math.random() * Math.PI * 2
+    };
+  }
+
+  function beginFinalRegion() {
+    player.x = 120;
+    player.y = H / 2;
+
+    machine = {
+      x: W / 2,
+      y: H / 2,
+      r: 74,
+      built: false,
+      charge: 0,
+      activeRelics: 0
+    };
+
+    for (let i = 0; i < 8; i++) {
+      const pos = randomFreePosition(350, 1080);
+      enemies.push({
+        ...makeEnemy(pos.x, pos.y, 2),
+        hp: 48,
+        maxHp: 48,
+        speed: 105,
+        r: 15,
+        color: "#ff62d7",
+        damage: 10
+      });
+    }
+
+    setMessage("Defeat the voidlings, then activate the Reality Engine!", 4);
+  }
+
+  function spawnBoss() {
+    boss = {
+      x: W - 170,
+      y: H / 2,
+      r: 58,
+      hp: 900,
+      maxHp: 900,
+      speed: 62,
+      attackCooldown: 1,
+      summonCooldown: 4,
+      flash: 0,
+      phase: 1,
+      shield: true,
+      enraged: false
+    };
+    state.bossIntro = true;
+    setMessage("THE REALITY DEVOURER HAS ARRIVED!", 3.5);
+    screenShake = 1;
+  }
+
+  function randomFreePosition(minX, maxX) {
+    for (let tries = 0; tries < 100; tries++) {
+      const x = minX + Math.random() * (maxX - minX);
+      const y = 70 + Math.random() * (H - 140);
+      if (!circleHitsObstacle(x, y, 28)) return {x, y};
+    }
+    return {x: maxX - 50, y: H / 2};
+  }
+
+  function setMessage(text, seconds = 2.5) {
+    message = text;
+    messageTimer = seconds;
+  }
+
+  function circleRectCollision(cx, cy, r, rect) {
+    const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+    const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+    const dx = cx - closestX;
+    const dy = cy - closestY;
+    return dx * dx + dy * dy < r * r;
+  }
+
+  function circleHitsObstacle(x, y, r) {
+    return obstacles.some(o => circleRectCollision(x, y, r, o));
+  }
+
+  function moveEntity(entity, dx, dy) {
+    const nx = entity.x + dx;
+    const ny = entity.y + dy;
+
+    if (nx - entity.r >= 0 && nx + entity.r <= W && !circleHitsObstacle(nx, entity.y, entity.r)) {
+      entity.x = nx;
+    }
+    if (ny - entity.r >= 48 && ny + entity.r <= H && !circleHitsObstacle(entity.x, ny, entity.r)) {
+      entity.y = ny;
+    }
+  }
+
+  function normalize(x, y) {
+    const len = Math.hypot(x, y) || 1;
+    return {x: x / len, y: y / len};
+  }
+
+  function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function update(dt) {
+    if (state.gameOver || state.victory) {
+      if (keys.KeyR) resetGame();
+      return;
+    }
+
+    if (messageTimer > 0) messageTimer -= dt;
+    if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 2);
+    player.attackCooldown -= dt;
+    player.invuln -= dt;
+
+    let mx = 0, my = 0;
+    if (keys.KeyW || keys.ArrowUp) my -= 1;
+    if (keys.KeyS || keys.ArrowDown) my += 1;
+    if (keys.KeyA || keys.ArrowLeft) mx -= 1;
+    if (keys.KeyD || keys.ArrowRight) mx += 1;
+
+    if (mx || my) {
+      const n = normalize(mx, my);
+      player.facingX = n.x;
+      player.facingY = n.y;
+      moveEntity(player, n.x * player.speed * dt, n.y * player.speed * dt);
+    }
+
+    if (keys.Space && player.attackCooldown <= 0) {
+      playerAttack();
+    }
+
+    if (keys.KeyE) {
+      interact();
+      keys.KeyE = false;
+    }
+
+    updateProjectiles(dt);
+    updateEnemies(dt);
+    updateBoss(dt);
+    updatePickups();
+    updateParticles(dt);
+    handleRegionProgress();
+  }
+
+  function playerAttack() {
+    player.attackCooldown = 0.32;
+
+    const relicBonus = state.artifacts.length * 5;
+    const spread = state.artifacts.length >= 2 ? [-0.13, 0, 0.13] : [0];
+
+    for (const angle of spread) {
+      const base = Math.atan2(player.facingY, player.facingX) + angle;
+      projectiles.push({
+        x: player.x + Math.cos(base) * 26,
+        y: player.y + Math.sin(base) * 26,
+        vx: Math.cos(base) * 560,
+        vy: Math.sin(base) * 560,
+        r: state.artifacts.length === 3 ? 8 : 6,
+        damage: player.damage + relicBonus,
+        life: 1.1,
+        color: state.artifacts.length === 3 ? "#ffffff" : "#ffe46b"
+      });
+    }
+
+    burst(player.x + player.facingX * 24, player.y + player.facingY * 24, "#fff4aa", 5, 110);
+  }
+
+  function updateProjectiles(dt) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+
+      let remove = p.life <= 0 || p.x < 0 || p.x > W || p.y < 48 || p.y > H || circleHitsObstacle(p.x, p.y, p.r);
+
+      if (!remove) {
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const e = enemies[j];
+          if (Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
+            e.hp -= p.damage;
+            e.flash = 0.12;
+            burst(p.x, p.y, e.color, 7, 150);
+            remove = true;
+
+            if (e.hp <= 0) {
+              state.score += 100;
+              if (Math.random() < 0.25) {
+                pickups.push({x: e.x, y: e.y, r: 10, type: "health"});
+              }
+              burst(e.x, e.y, e.color, 16, 220);
+              enemies.splice(j, 1);
+            }
+            break;
+          }
+        }
+      }
+
+      if (!remove && boss && !boss.shield && Math.hypot(p.x - boss.x, p.y - boss.y) < p.r + boss.r) {
+        boss.hp -= p.damage;
+        boss.flash = 0.1;
+        remove = true;
+        burst(p.x, p.y, "#ff63ff", 8, 180);
+        screenShake = Math.max(screenShake, 0.12);
+      }
+
+      if (remove) projectiles.splice(i, 1);
+    }
+
+    for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+      const p = enemyProjectiles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+
+      let remove = p.life <= 0 || p.x < -20 || p.x > W + 20 || p.y < 30 || p.y > H + 20 || circleHitsObstacle(p.x, p.y, p.r);
+
+      if (!remove && Math.hypot(p.x - player.x, p.y - player.y) < p.r + player.r) {
+        hurtPlayer(p.damage);
+        remove = true;
+        burst(p.x, p.y, "#ff477e", 9, 180);
+      }
+
+      if (remove) enemyProjectiles.splice(i, 1);
+    }
+  }
+
+  function updateEnemies(dt) {
+    for (const e of enemies) {
+      e.attackCooldown -= dt;
+      e.flash -= dt;
+      e.phase += dt * 3;
+
+      const d = distance(e, player);
+      if (d > e.r + player.r + 8) {
+        const n = normalize(player.x - e.x, player.y - e.y);
+        moveEntity(e, n.x * e.speed * dt, n.y * e.speed * dt);
+      } else if (e.attackCooldown <= 0) {
+        e.attackCooldown = 1.05;
+        hurtPlayer(e.damage);
+      }
+    }
+  }
+
+  function updateBoss(dt) {
+    if (!boss) return;
+
+    boss.attackCooldown -= dt;
+    boss.summonCooldown -= dt;
+    boss.flash -= dt;
+
+    const hpRatio = boss.hp / boss.maxHp;
+
+    if (hpRatio < 0.67 && boss.phase === 1) {
+      boss.phase = 2;
+      setMessage("The Tide Pearl disrupts the Devourer's shield!", 2.8);
+      boss.shield = true;
+      machine.charge = 0;
+    }
+    if (hpRatio < 0.33 && boss.phase === 2) {
+      boss.phase = 3;
+      boss.enraged = true;
+      setMessage("Final phase! Activate the Echo Crystal!", 2.8);
+      boss.shield = true;
+      machine.charge = 0;
+    }
+
+    const d = distance(boss, player);
+    if (d > 210) {
+      const n = normalize(player.x - boss.x, player.y - boss.y);
+      moveEntity(boss, n.x * boss.speed * (boss.enraged ? 1.45 : 1) * dt, n.y * boss.speed * (boss.enraged ? 1.45 : 1) * dt);
+    }
+
+    if (boss.attackCooldown <= 0) {
+      boss.attackCooldown = boss.enraged ? 0.55 : 0.9;
+      fireBossVolley();
+    }
+
+    if (boss.summonCooldown <= 0) {
+      boss.summonCooldown = boss.enraged ? 3 : 5;
+      const count = boss.enraged ? 3 : 2;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        enemies.push({
+          ...makeEnemy(
+            boss.x + Math.cos(angle) * 90,
+            boss.y + Math.sin(angle) * 90,
+            2
+          ),
+          hp: 44,
+          maxHp: 44,
+          speed: 120,
+          r: 14,
+          color: "#ff4fc3",
+          damage: 9
+        });
+      }
+      setMessage("The Devourer summons voidlings!", 1.6);
+    }
+
+    if (boss.hp <= 0) {
+      boss.hp = 0;
+      state.victory = true;
+      setMessage("REALITY RESTORED!", 999);
+      burst(boss.x, boss.y, "#ffffff", 100, 500);
+    }
+  }
+
+  function fireBossVolley() {
+    const base = Math.atan2(player.y - boss.y, player.x - boss.x);
+    const count = boss.enraged ? 7 : 5;
+    for (let i = 0; i < count; i++) {
+      const offset = (i - (count - 1) / 2) * 0.16;
+      const a = base + offset;
+      enemyProjectiles.push({
+        x: boss.x,
+        y: boss.y,
+        vx: Math.cos(a) * (boss.enraged ? 330 : 280),
+        vy: Math.sin(a) * (boss.enraged ? 330 : 280),
+        r: 8,
+        damage: boss.enraged ? 13 : 10,
+        life: 3.2,
+        color: "#ff4fd8"
+      });
+    }
+  }
+
+  function hurtPlayer(amount) {
+    if (player.invuln > 0) return;
+    player.hp -= amount;
+    player.invuln = 0.65;
+    screenShake = Math.max(screenShake, 0.35);
+    burst(player.x, player.y, "#ff5b5b", 12, 190);
+
+    if (player.hp <= 0) {
+      player.hp = 0;
+      state.gameOver = true;
+      setMessage("Reality collapses... Press R to try again.", 999);
+    }
+  }
+
+  function updatePickups() {
+    for (let i = pickups.length - 1; i >= 0; i--) {
+      const p = pickups[i];
+      if (distance(p, player) < p.r + player.r + 3) {
+        if (p.type === "health") {
+          player.hp = Math.min(player.maxHp, player.hp + 22);
+          setMessage("Health restored!", 1.3);
+        }
+        pickups.splice(i, 1);
+      }
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function burst(x, y, color, count = 10, speed = 180) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = Math.random() * speed;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: 0.3 + Math.random() * 0.5,
+        maxLife: 0.8,
+        r: 2 + Math.random() * 4,
+        color
+      });
+    }
+  }
+
+  function handleRegionProgress() {
+    if (state.region < 3) {
+      if (enemies.length === 0 && !artifact && !state.regionComplete) {
+        artifact = {
+          x: W - 145,
+          y: H / 2,
+          r: 25,
+          collected: false
+        };
+        state.regionComplete = true;
+        setMessage(`${REGIONS[state.region].artifactName} revealed!`, 2.5);
+      }
+
+      if (artifact && !artifact.collected && distance(artifact, player) < artifact.r + player.r + 8) {
+        artifact.collected = true;
+        state.artifacts.push(REGIONS[state.region].artifactName);
+        state.score += 500;
+        player.maxHp += 10;
+        player.hp = player.maxHp;
+        portal = {x: W - 90, y: H / 2, r: 35};
+        setMessage(`${REGIONS[state.region].artifactName} acquired! Enter the portal.`, 3);
+        burst(artifact.x, artifact.y, REGIONS[state.region].artifactColor, 35, 260);
+      }
+
+      if (portal && distance(portal, player) < portal.r + player.r) {
+        loadRegion(state.region + 1);
+      }
+    } else {
+      if (!state.machineBuilt && enemies.length === 0) {
+        state.machineBuilt = true;
+        machine.built = true;
+        setMessage("Stand near the machine and press E to install the artifacts.", 4);
+      }
+    }
+  }
+
+  function interact() {
+    if (state.region !== 3 || !machine || !state.machineBuilt) return;
+
+    const nearMachine = distance(machine, player) < machine.r + player.r + 55;
+    if (!nearMachine) return;
+
+    if (!boss) {
+      if (machine.activeRelics < 3) {
+        machine.activeRelics++;
+        burst(machine.x, machine.y, REGIONS[machine.activeRelics - 1].artifactColor, 28, 250);
+        setMessage(`${state.artifacts[machine.activeRelics - 1]} installed!`, 1.8);
+
+        if (machine.activeRelics === 3) {
+          machine.charge = 1;
+          setMessage("The Reality Engine is online!", 2.5);
+          setTimeout(spawnBoss, 900);
+        }
+      }
+      return;
+    }
+
+    if (boss.shield) {
+      machine.charge += 1;
+      burst(machine.x, machine.y, REGIONS[Math.min(boss.phase - 1, 2)].artifactColor, 35, 300);
+
+      if (machine.charge >= 3) {
+        machine.charge = 0;
+        boss.shield = false;
+        setMessage("Boss shield shattered! Attack now!", 2.4);
+        screenShake = 0.7;
+      } else {
+        setMessage(`Reality Engine charge ${machine.charge}/3`, 1.4);
+      }
+    }
+  }
+
+  function draw() {
+    const region = REGIONS[state.region];
+    const shakeX = screenShake ? (Math.random() - 0.5) * 12 * screenShake : 0;
+    const shakeY = screenShake ? (Math.random() - 0.5) * 12 * screenShake : 0;
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    drawBackground(region);
+    drawObstacles(region);
+
+    if (portal) drawPortal();
+    if (artifact && !artifact.collected) drawArtifact(region);
+    if (machine) drawMachine();
+
+    drawPickups();
+    drawProjectiles();
+    drawEnemies();
+    if (boss) drawBoss();
+    drawPlayer();
+    drawParticles();
+
+    ctx.restore();
+
+    drawUI(region);
+    if (messageTimer > 0) drawMessage();
+    if (state.gameOver) drawEndOverlay(false);
+    if (state.victory) drawEndOverlay(true);
+  }
+
+  function drawBackground(region) {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, region.bg[0]);
+    g.addColorStop(1, region.bg[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = region.accent;
+    ctx.lineWidth = 2;
+    for (let x = -H; x < W + H; x += 70) {
+      ctx.beginPath();
+      ctx.moveTo(x, 48);
+      ctx.lineTo(x + H, H);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    if (state.region === 0) drawPyramidDecor();
+    if (state.region === 1) drawOceanDecor();
+    if (state.region === 2) drawCaveDecor();
+    if (state.region === 3) drawNexusDecor();
+  }
+
+  function drawPyramidDecor() {
+    ctx.fillStyle = "rgba(255,240,155,.2)";
+    for (let i = 0; i < 12; i++) {
+      const x = (i * 119 + 40) % W;
+      const y = 90 + ((i * 83) % 560);
+      ctx.beginPath();
+      ctx.moveTo(x, y + 34);
+      ctx.lineTo(x + 28, y - 20);
+      ctx.lineTo(x + 56, y + 34);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawOceanDecor() {
+    ctx.strokeStyle = "rgba(130,240,255,.25)";
+    for (let i = 0; i < 8; i++) {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 20) {
+        const y = 85 + i * 75 + Math.sin(x * 0.025 + performance.now() * 0.002 + i) * 10;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawCaveDecor() {
+    ctx.fillStyle = "rgba(220,120,255,.22)";
+    for (let i = 0; i < 28; i++) {
+      const x = (i * 137 + 60) % W;
+      const y = 70 + ((i * 97) % 600);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 10, y - 28);
+      ctx.lineTo(x + 20, y);
+      ctx.lineTo(x + 10, y + 18);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawNexusDecor() {
+    const t = performance.now() * 0.001;
+    ctx.strokeStyle = "rgba(255,100,245,.3)";
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.arc(W/2, H/2, 120 + i*65 + Math.sin(t+i)*8, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  function drawObstacles(region) {
+    for (const o of obstacles) {
+      ctx.fillStyle = region.obstacle;
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.strokeStyle = region.accent;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(o.x, o.y, o.w, o.h);
+
+      ctx.globalAlpha = 0.25;
+      for (let y = o.y + 18; y < o.y + o.h; y += 28) {
+        ctx.beginPath();
+        ctx.moveTo(o.x + 8, y);
+        ctx.lineTo(o.x + o.w - 8, y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawPlayer() {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+
+    if (player.invuln > 0 && Math.floor(performance.now() / 80) % 2 === 0) {
+      ctx.globalAlpha = 0.35;
+    }
+
+    ctx.fillStyle = "#244e76";
+    ctx.beginPath();
+    ctx.arc(0, 0, player.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#d6f1ff";
+    ctx.beginPath();
+    ctx.arc(0, -4, 11, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#55351f";
+    ctx.fillRect(-14, 11, 28, 8);
+
+    ctx.strokeStyle = "#ffe87d";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(player.facingX * 31, player.facingY * 31);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawEnemies() {
+    for (const e of enemies) {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+
+      ctx.fillStyle = e.flash > 0 ? "#ffffff" : e.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, e.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#10131c";
+      ctx.beginPath();
+      ctx.arc(-6, -4, 3, 0, Math.PI * 2);
+      ctx.arc(6, -4, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (state.region === 0) {
+        ctx.strokeStyle = "#6e624c";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-14, -8);
+        ctx.lineTo(14, 5);
+        ctx.moveTo(-12, 6);
+        ctx.lineTo(11, 14);
+        ctx.stroke();
+      } else if (state.region === 1) {
+        ctx.strokeStyle = "#b2fff8";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-e.r, 5);
+        ctx.lineTo(-e.r - 12, 14);
+        ctx.moveTo(e.r, 5);
+        ctx.lineTo(e.r + 12, 14);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = "#f2c4ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -e.r);
+        ctx.lineTo(0, e.r);
+        ctx.moveTo(-e.r, 0);
+        ctx.lineTo(e.r, 0);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      drawHealthBar(e.x - 22, e.y - e.r - 12, 44, 5, e.hp / e.maxHp, "#ff6677");
+    }
+  }
+
+  function drawBoss() {
+    ctx.save();
+    ctx.translate(boss.x, boss.y);
+
+    const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.07;
+    ctx.scale(pulse, pulse);
+
+    ctx.fillStyle = boss.flash > 0 ? "#ffffff" : "#741378";
+    ctx.beginPath();
+    ctx.arc(0, 0, boss.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#ff6ee8";
+    ctx.lineWidth = 6;
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4 + performance.now() * 0.001;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * boss.r * 0.7, Math.sin(a) * boss.r * 0.7);
+      ctx.lineTo(Math.cos(a) * boss.r * 1.4, Math.sin(a) * boss.r * 1.4);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#0c0610";
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 27, 35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(-19, -18, 7, 0, Math.PI * 2);
+    ctx.arc(19, -18, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (boss.shield) {
+      ctx.strokeStyle = "rgba(120,240,255,.9)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, boss.r + 18 + Math.sin(performance.now() * 0.01) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawProjectiles() {
+    for (const p of projectiles) {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const p of enemyProjectiles) {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawArtifact(region) {
+    const bob = Math.sin(performance.now() * 0.005) * 8;
+    ctx.save();
+    ctx.translate(artifact.x, artifact.y + bob);
+    ctx.rotate(performance.now() * 0.0015);
+
+    ctx.shadowColor = region.artifactColor;
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = region.artifactColor;
+
+    if (state.region === 0) {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18, 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-28, -5, 56, 10);
+    } else if (state.region === 1) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 23, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, -30);
+      ctx.lineTo(21, 0);
+      ctx.lineTo(0, 30);
+      ctx.lineTo(-21, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPortal() {
+    const t = performance.now() * 0.004;
+    ctx.save();
+    ctx.translate(portal.x, portal.y);
+    ctx.rotate(t);
+    for (let i = 0; i < 4; i++) {
+      ctx.strokeStyle = `rgba(${90 + i*35}, ${180 + i*15}, 255, ${0.95 - i*0.15})`;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.arc(0, 0, portal.r - i * 6, i * 0.7, Math.PI * 1.5 + i * 0.7);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawMachine() {
+    const pulse = 1 + Math.sin(performance.now() * 0.004) * 0.04;
+    ctx.save();
+    ctx.translate(machine.x, machine.y);
+    ctx.scale(pulse, pulse);
+
+    ctx.fillStyle = machine.built ? "#243b5a" : "#191b23";
+    ctx.beginPath();
+    ctx.arc(0, 0, machine.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#9ddcff";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, 0, machine.r - 8, 0, Math.PI * 2);
+    ctx.stroke();
+
+    for (let i = 0; i < 3; i++) {
+      const a = -Math.PI / 2 + i * Math.PI * 2 / 3;
+      const x = Math.cos(a) * 43;
+      const y = Math.sin(a) * 43;
+      ctx.fillStyle = i < machine.activeRelics ? REGIONS[i].artifactColor : "#303948";
+      ctx.beginPath();
+      ctx.arc(x, y, 15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = machine.activeRelics === 3 ? "#ffffff" : "#5c748b";
+    ctx.beginPath();
+    ctx.arc(0, 0, 21, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (boss && boss.shield) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, machine.r + 16 + machine.charge * 7, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawPickups() {
+    for (const p of pickups) {
+      ctx.fillStyle = "#4dff7d";
+      ctx.fillRect(p.x - 4, p.y - 11, 8, 22);
+      ctx.fillRect(p.x - 11, p.y - 4, 22, 8);
+    }
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHealthBar(x, y, w, h, pct, color) {
+    ctx.fillStyle = "rgba(0,0,0,.55)";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w * Math.max(0, pct), h);
+  }
+
+  function drawUI(region) {
+    ctx.fillStyle = "rgba(5,8,16,.78)";
+    ctx.fillRect(0, 0, W, 48);
+
+    ctx.font = "bold 20px Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(region.name, 18, 30);
+
+    drawHealthBar(230, 15, 220, 18, player.hp / player.maxHp, "#50e06e");
+    ctx.font = "bold 14px Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(`HP ${Math.ceil(player.hp)}/${player.maxHp}`, 292, 29);
+
+    ctx.fillText(`Artifacts: ${state.artifacts.length}/3`, 485, 29);
+    ctx.fillText(`Score: ${state.score}`, 640, 29);
+
+    if (state.region < 3) {
+      ctx.fillStyle = region.accent;
+      ctx.fillText(region.subtitle, 780, 29);
+    } else if (!boss) {
+      ctx.fillStyle = "#ff8af1";
+      ctx.fillText("Construct the Reality Engine", 790, 29);
+    }
+
+    if (boss) {
+      ctx.fillStyle = "rgba(0,0,0,.72)";
+      ctx.fillRect(240, 55, 720, 26);
+      ctx.fillStyle = "#ff4fcf";
+      ctx.fillRect(244, 59, 712 * (boss.hp / boss.maxHp), 18);
+      ctx.strokeStyle = "#ffffff";
+      ctx.strokeRect(240, 55, 720, 26);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(`REALITY DEVOURER — PHASE ${boss.phase}`, W / 2, 75);
+      ctx.textAlign = "left";
+
+      if (boss.shield) {
+        ctx.fillStyle = "#a9f5ff";
+        ctx.font = "bold 16px Arial";
+        ctx.fillText("Boss shielded — press E near the machine three times!", 350, 105);
+      }
+    }
+  }
+
+  function drawMessage() {
+    ctx.font = "bold 24px Arial";
+    const pad = 24;
+    const width = Math.min(920, ctx.measureText(message).width + pad * 2);
+    const x = (W - width) / 2;
+
+    ctx.fillStyle = "rgba(0,0,0,.7)";
+    ctx.fillRect(x, H - 70, width, 44);
+    ctx.strokeStyle = "#ffffff";
+    ctx.strokeRect(x, H - 70, width, 44);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.fillText(message, W / 2, H - 40);
+    ctx.textAlign = "left";
+  }
+
+  function drawEndOverlay(victory) {
+    ctx.fillStyle = "rgba(0,0,0,.72)";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = victory ? "#9fffff" : "#ff6677";
+    ctx.font = "bold 58px Arial";
+    ctx.fillText(victory ? "REALITY SAVED!" : "REALITY COLLAPSED", W / 2, H / 2 - 70);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "24px Arial";
+    ctx.fillText(
+      victory
+        ? "The Solar Scarab, Tide Pearl, and Echo Crystal power the giant Reality Engine."
+        : "The artifacts remain lost in the fractured worlds.",
+      W / 2,
+      H / 2
+    );
+
+    ctx.font = "bold 21px Arial";
+    ctx.fillText(`Final Score: ${state.score}`, W / 2, H / 2 + 50);
+    ctx.fillText("Press R to play again", W / 2, H / 2 + 95);
+    ctx.textAlign = "left";
+  }
+
+  function gameLoop(now) {
+    const dt = Math.min(0.033, (now - lastTime) / 1000);
+    lastTime = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  addEventListener("keydown", e => {
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
+      e.preventDefault();
+    }
+    keys[e.code] = true;
+  });
+
+  addEventListener("keyup", e => {
+    keys[e.code] = false;
+  });
+
+  document.querySelectorAll("#mobileControls button").forEach(button => {
+    const code = button.dataset.key;
+    const down = e => {
+      e.preventDefault();
+      keys[code] = true;
+    };
+    const up = e => {
+      e.preventDefault();
+      keys[code] = false;
+    };
+    button.addEventListener("pointerdown", down);
+    button.addEventListener("pointerup", up);
+    button.addEventListener("pointercancel", up);
+    button.addEventListener("pointerleave", up);
+  });
+
+  resetGame();
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>
