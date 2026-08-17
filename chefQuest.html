@@ -178,7 +178,7 @@
     <p>The Moon Festival begins at midnight, but the kingdom's sacred cake recipe has been lost. Climb impossible peaks, raid forgotten ruins, solve ancient puzzles, and gather five legendary ingredients.</p>
     <div class="controls">
       <div><kbd>A</kbd> <kbd>D</kbd> or arrows — move</div>
-      <div><kbd>W</kbd> <kbd>↑</kbd> <kbd>Space</kbd> — jump</div>
+      <div><kbd>W</kbd> <kbd>↑</kbd> <kbd>Space</kbd> — jump / double jump</div>
       <div><kbd>E</kbd> — use switches and cook</div>
       <div><kbd>R</kbd> — restart current level</div>
     </div>
@@ -264,7 +264,7 @@
   const player = {
     x:80,y:400,w:30,h:44,vx:0,vy:0,
     speed:4.5,jump:11.2,onGround:false,
-    coyote:0,jumpBuffer:0,face:1,
+    coyote:0,jumpBuffer:0,face:1,maxJumps:2,jumpsUsed:0,
     spawnX:80,spawnY:400
   };
 
@@ -545,14 +545,14 @@
     levelTime = 0;
     camera.x = camera.y = 0;
     [player.spawnX,player.spawnY] = level.spawn;
-    player.x=player.spawnX; player.y=player.spawnY; player.vx=player.vy=0;
+    player.x=player.spawnX; player.y=player.spawnY; player.vx=player.vy=0; player.jumpsUsed=0;
     updateHUD();
     showMessage(current < 5 ? `Level ${current+1}: ${level.name.split(". ").pop()}` : "Final Level: Cook the Legendary Cake!", 2.5);
   }
 
   function respawn(msg="You fell. Back to the last checkpoint!") {
     deaths++;
-    player.x=player.spawnX; player.y=player.spawnY; player.vx=player.vy=0;
+    player.x=player.spawnX; player.y=player.spawnY; player.vx=player.vy=0; player.jumpsUsed=0;
     showMessage(msg);
   }
 
@@ -649,15 +649,25 @@
     player.vx*=Math.pow(player.onGround ? .78 : .91, frame);
     player.vx=clamp(player.vx,-player.speed,player.speed);
 
-    if (player.onGround) player.coyote=.12;
-    else player.coyote-=dt;
+    if (player.onGround) {
+      player.coyote=.12;
+      player.jumpsUsed=0;
+    } else player.coyote-=dt;
     if (jumpPressed) player.jumpBuffer=.12;
     else player.jumpBuffer-=dt;
 
-    if (player.jumpBuffer>0 && player.coyote>0) {
-      player.vy=-player.jump;
+    if (player.jumpBuffer>0 && (player.coyote>0 || player.jumpsUsed<player.maxJumps)) {
+      const isDoubleJump = player.jumpsUsed > 0;
+      player.vy = isDoubleJump ? -player.jump * 0.92 : -player.jump;
+      player.jumpsUsed++;
       player.jumpBuffer=0; player.coyote=0; player.onGround=false;
-      burst(player.x+15,player.y+player.h,7,"#ffffff");
+      burst(
+        player.x+15,
+        player.y+player.h,
+        isDoubleJump ? 14 : 7,
+        isDoubleJump ? "#ffd166" : "#ffffff"
+      );
+      if (isDoubleJump) showMessage("Double jump!", .55);
     }
     if (!(keys[" "]||keys.w||keys.arrowup) && player.vy<0) player.vy+=0.55 * frame;
 
