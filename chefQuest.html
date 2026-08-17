@@ -263,7 +263,7 @@
 
   const player = {
     x:80,y:400,w:30,h:44,vx:0,vy:0,
-    speed:4.8,jump:12.2,onGround:false,
+    speed:4.5,jump:11.2,onGround:false,
     coyote:0,jumpBuffer:0,face:1,
     spawnX:80,spawnY:400
   };
@@ -322,8 +322,8 @@
         objects:[
           platform(0,660,360,60), platform(440,590,140), platform(650,510,120),
           platform(850,430,120), platform(1040,520,180), platform(1310,450,120),
-          platform(1520,370,120), platform(1760,470,160), platform(2060,390,150),
-          platform(2310,300,230),
+          platform(1520,370,120), platform(1760,470,160), platform(2020,420,110),
+          platform(2200,350,150), platform(2310,300,230),
           spike(360,636,80), spike(580,636,70), spike(770,636,1270),
           moving(1210,570,90,18,"x",160,1.5), moving(1660,550,90,18,"y",170,1.2),
           switchObj(490,548,"a","#80ed99"),
@@ -407,12 +407,12 @@
           platform(860,560,100), platform(1080,470,110), platform(1310,590,100),
           platform(1540,490,100), platform(1780,390,110), platform(2010,520,100),
           platform(2250,430,120), platform(2510,340,120), platform(2780,450,130),
-          platform(3090,330,250),
+          platform(3020,330,250),
           spike(360,796,90), spike(560,796,90), spike(760,796,2510),
           moving(970,690,100,18,"x",190,2.1), moving(1420,680,100,18,"y",250,1.55),
           moving(1900,650,100,18,"x",230,2.25), moving(2400,600,100,18,"y",260,1.8),
           switchObj(170,778,"start","#ff4d6d"),
-          ingredient(3210,270,3)
+          ingredient(3140,270,3)
         ],
         stars:[],
         signs:[
@@ -638,13 +638,15 @@
   }
 
   function updatePlayer(dt) {
+    // Normalize movement to a 60 FPS baseline so high-refresh displays do not speed up the game.
+    const frame = dt * 60;
     const left=keys.a||keys.arrowleft;
     const right=keys.d||keys.arrowright;
     const jumpPressed=pressed[" "]||pressed.w||pressed.arrowup;
 
-    if (left) { player.vx-=0.85; player.face=-1; }
-    if (right) { player.vx+=0.85; player.face=1; }
-    player.vx*=player.onGround?.78:.91;
+    if (left) { player.vx-=0.65 * frame; player.face=-1; }
+    if (right) { player.vx+=0.65 * frame; player.face=1; }
+    player.vx*=Math.pow(player.onGround ? .78 : .91, frame);
     player.vx=clamp(player.vx,-player.speed,player.speed);
 
     if (player.onGround) player.coyote=.12;
@@ -657,16 +659,16 @@
       player.jumpBuffer=0; player.coyote=0; player.onGround=false;
       burst(player.x+15,player.y+player.h,7,"#ffffff");
     }
-    if (!(keys[" "]||keys.w||keys.arrowup) && player.vy<0) player.vy+=0.55;
+    if (!(keys[" "]||keys.w||keys.arrowup) && player.vy<0) player.vy+=0.55 * frame;
 
-    player.vy+=0.58;
+    player.vy+=0.58 * frame;
     player.vy=Math.min(player.vy,15);
 
     const solids=level.objects.filter(o=>
       ["solid","moving"].includes(o.type) || (o.type==="door"&&!o.open)
     );
 
-    player.x+=player.vx;
+    player.x+=player.vx * frame;
     for(const o of solids) {
       if(hit(player,o)) {
         if(player.vx>0) player.x=o.x-player.w;
@@ -676,7 +678,7 @@
     }
 
     player.onGround=false;
-    player.y+=player.vy;
+    player.y+=player.vy * frame;
     for(const o of solids) {
       if(hit(player,o)) {
         if(player.vy>0) {
