@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Legendary Cake Quest</title>
+<style>
+  :root {
+    --panel: rgba(15, 18, 35, 0.88);
+    --accent: #ffd166;
+    --accent2: #ef476f;
+    --good: #67e8a5;
+    --text: #f8f9ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #10152e;
+    color: var(--text);
+    font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    image-rendering: pixelated;
+  }
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+  .panel {
+    position: absolute;
+    background: var(--panel);
+    border: 2px solid rgba(255,255,255,.14);
+    border-radius: 14px;
+    box-shadow: 0 10px 35px rgba(0,0,0,.35);
+    backdrop-filter: blur(7px);
+  }
+  #topbar {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    min-height: 60px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  #levelName { font-weight: 900; color: var(--accent); min-width: 230px; }
+  #objective { flex: 1; font-size: 14px; }
+  #inventory { font-size: 14px; text-align: right; white-space: nowrap; }
+  #message {
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    width: min(720px, calc(100vw - 30px));
+    padding: 12px 16px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  #message.show { opacity: 1; }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at top, rgba(67,97,238,.4), rgba(7,9,20,.96));
+    z-index: 20;
+  }
+  #card {
+    width: min(760px, calc(100vw - 32px));
+    background: rgba(9,12,28,.94);
+    border: 2px solid rgba(255,255,255,.14);
+    border-radius: 22px;
+    padding: 30px;
+    box-shadow: 0 24px 80px rgba(0,0,0,.5);
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: clamp(34px, 6vw, 68px);
+    line-height: .95;
+    color: var(--accent);
+    text-shadow: 0 5px 0 #8b4d08;
+  }
+  h2 { margin: 10px 0; color: var(--accent); }
+  p { line-height: 1.55; }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+    text-align: left;
+    margin: 18px 0;
+    font-size: 14px;
+  }
+  kbd {
+    background: #262c4f;
+    border: 1px solid #6871a8;
+    border-bottom-width: 3px;
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-weight: 800;
+  }
+  button {
+    pointer-events: auto;
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 22px;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    background: linear-gradient(#ffe38b, #ffbd2e);
+    color: #362100;
+    box-shadow: 0 7px 0 #a96900;
+  }
+  button:active { transform: translateY(4px); box-shadow: 0 3px 0 #a96900; }
+  #touch {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 8;
+  }
+  .touchButton {
+    pointer-events: auto;
+    position: absolute;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: rgba(20,25,50,.65);
+    border: 2px solid rgba(255,255,255,.25);
+    color: white;
+    display: none;
+    place-items: center;
+    font-size: 28px;
+    user-select: none;
+  }
+  #leftBtn { left: 22px; bottom: 22px; }
+  #rightBtn { left: 102px; bottom: 22px; }
+  #jumpBtn { right: 22px; bottom: 22px; }
+  #interactBtn { right: 102px; bottom: 92px; font-size: 17px; }
+  @media (pointer: coarse), (max-width: 760px) {
+    .touchButton { display: grid; }
+    #topbar { font-size: 12px; gap: 8px; flex-wrap: wrap; }
+    #levelName { min-width: unset; }
+    #inventory { width: 100%; text-align: left; }
+    .controls { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="topbar" class="panel">
+    <div id="levelName">Legendary Cake Quest</div>
+    <div id="objective">Find the first legendary ingredient.</div>
+    <div id="inventory">Ingredients: 0 / 5</div>
+  </div>
+  <div id="message" class="panel"></div>
+</div>
+
+<div id="touch">
+  <div id="leftBtn" class="touchButton">◀</div>
+  <div id="rightBtn" class="touchButton">▶</div>
+  <div id="jumpBtn" class="touchButton">⬆</div>
+  <div id="interactBtn" class="touchButton">USE</div>
+</div>
+
+<div id="overlay">
+  <div id="card">
+    <h1>Legendary<br>Cake Quest</h1>
+    <p>The Moon Festival begins at midnight, but the kingdom's sacred cake recipe has been lost. Climb impossible peaks, raid forgotten ruins, solve ancient puzzles, and gather five legendary ingredients.</p>
+    <div class="controls">
+      <div><kbd>A</kbd> <kbd>D</kbd> or arrows — move</div>
+      <div><kbd>W</kbd> <kbd>↑</kbd> <kbd>Space</kbd> — jump</div>
+      <div><kbd>E</kbd> — use switches and cook</div>
+      <div><kbd>R</kbd> — restart current level</div>
+    </div>
+    <button id="startBtn">Begin the Quest</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const levelNameEl = document.getElementById("levelName");
+  const objectiveEl = document.getElementById("objective");
+  const inventoryEl = document.getElementById("inventory");
+  const messageEl = document.getElementById("message");
+  const overlay = document.getElementById("overlay");
+  const card = document.getElementById("card");
+  const startBtn = document.getElementById("startBtn");
+
+  let W = 1280, H = 720, scale = 1;
+  function resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    canvas.style.width = innerWidth + "px";
+    canvas.style.height = innerHeight + "px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    W = innerWidth;
+    H = innerHeight;
+  }
+  addEventListener("resize", resize);
+  resize();
+
+  const keys = {};
+  const pressed = {};
+  addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if (!keys[k]) pressed[k] = true;
+    keys[k] = true;
+    if (["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k)) e.preventDefault();
+  });
+  addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  function bindTouch(id, key) {
+    const el = document.getElementById(id);
+    const on = e => { e.preventDefault(); if (!keys[key]) pressed[key] = true; keys[key] = true; };
+    const off = e => { e.preventDefault(); keys[key] = false; };
+    el.addEventListener("pointerdown", on);
+    el.addEventListener("pointerup", off);
+    el.addEventListener("pointercancel", off);
+    el.addEventListener("pointerleave", off);
+  }
+  bindTouch("leftBtn","arrowleft");
+  bindTouch("rightBtn","arrowright");
+  bindTouch("jumpBtn"," ");
+  bindTouch("interactBtn","e");
+
+  const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
+  const hit = (a,b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  const near = (a,b,d=55) => Math.hypot((a.x+a.w/2)-(b.x+b.w/2),(a.y+a.h/2)-(b.y+b.h/2)) < d;
+  const rect = (x,y,w,h,type="solid", extra={}) => ({x,y,w,h,type,...extra});
+
+  const ingredients = [
+    {name:"Sunfire Saffron", icon:"✦"},
+    {name:"Cloudberry Crystal", icon:"◆"},
+    {name:"Dragon Egg", icon:"◉"},
+    {name:"Starlight Sugar", icon:"✧"},
+    {name:"Phoenix Vanilla", icon:"❖"}
+  ];
+
+  let collected = [];
+  let current = 0;
+  let state = "menu";
+  let messageTimer = 0;
+  let deaths = 0;
+  let camera = {x:0,y:0};
+  let particles = [];
+  let level = null;
+  let levelTime = 0;
+
+  const player = {
+    x:80,y:400,w:30,h:44,vx:0,vy:0,
+    speed:4.8,jump:12.2,onGround:false,
+    coyote:0,jumpBuffer:0,face:1,
+    spawnX:80,spawnY:400
+  };
+
+  function showMessage(text, seconds=2.3) {
+    messageEl.textContent = text;
+    messageEl.classList.add("show");
+    messageTimer = seconds;
+  }
+
+  function updateHUD() {
+    levelNameEl.textContent = level ? level.name : "Legendary Cake Quest";
+    objectiveEl.textContent = level ? level.objective() : "";
+    inventoryEl.textContent = "Ingredients: " + collected.length + " / 5" +
+      (collected.length ? " — " + collected.map(i=>ingredients[i].icon).join(" ") : "");
+  }
+
+  function platform(x,y,w,h=24, extra={}) { return rect(x,y,w,h,"solid",extra); }
+  function spike(x,y,w=50,h=24) { return rect(x,y,w,h,"hazard"); }
+  function ingredient(x,y,index) { return rect(x,y,34,34,"ingredient",{index,collected:false}); }
+  function switchObj(x,y,id,color="#ffd166") { return rect(x,y,30,42,"switch",{id,on:false,color}); }
+  function door(x,y,w,h,id) { return rect(x,y,w,h,"door",{id,open:false}); }
+  function moving(x,y,w,h,axis,range,speed,phase=0) {
+    return rect(x,y,w,h,"moving",{baseX:x,baseY:y,axis,range,speed,phase,prevX:x,prevY:y});
+  }
+
+  function createLevels() {
+    return [
+      {
+        name:"1. Whispering Cliffs",
+        width:2200, height:720,
+        bg:["#5bc0eb","#d9f5ff"],
+        spawn:[80,600],
+        goalIndex:0,
+        objects:[
+          platform(0,660,350,60), platform(430,610,150), platform(650,550,150),
+          platform(850,480,180), platform(1110,420,100), platform(1290,350,150),
+          platform(1510,410,100), platform(1690,330,160), platform(1940,260,180),
+          spike(350,636,80), spike(580,636,70), spike(800,636,310), spike(1210,636,480),
+          moving(1030,560,100,18,"y",110,1.1),
+          ingredient(2000,210,0)
+        ],
+        signs:[
+          {x:120,y:615,text:"Jump across the cliffs. The glowing saffron waits at the summit."},
+          {x:1080,y:375,text:"Moving platforms carry momentum. Keep climbing!"}
+        ],
+        objective(){ return "Reach the summit and claim the Sunfire Saffron."; }
+      },
+      {
+        name:"2. Cloudberry Shrine",
+        width:2600,height:720,
+        bg:["#7666d8","#e8dcff"],
+        spawn:[70,600],
+        goalIndex:1,
+        switchesNeeded:["a","b","c"],
+        objects:[
+          platform(0,660,360,60), platform(440,590,140), platform(650,510,120),
+          platform(850,430,120), platform(1040,520,180), platform(1310,450,120),
+          platform(1520,370,120), platform(1760,470,160), platform(2060,390,150),
+          platform(2310,300,230),
+          spike(360,636,80), spike(580,636,70), spike(770,636,1270),
+          moving(1210,570,90,18,"x",160,1.5), moving(1660,550,90,18,"y",170,1.2),
+          switchObj(490,548,"a","#80ed99"),
+          switchObj(890,388,"b","#ff9f1c"),
+          switchObj(1810,428,"c","#7bdff2"),
+          door(2220,180,45,480,"shrine"),
+          ingredient(2410,240,1)
+        ],
+        signs:[
+          {x:90,y:615,text:"Three runes unlock the shrine. Press E near each rune."},
+          {x:1315,y:405,text:"The final rune is beyond the moving cloud platforms."}
+        ],
+        objective(){
+          const n = this.objects.filter(o=>o.type==="switch"&&o.on).length;
+          return n < 3 ? `Activate the three shrine runes (${n}/3).` : "The shrine is open. Claim the Cloudberry Crystal!";
+        },
+        tick() {
+          const on = this.objects.filter(o=>o.type==="switch"&&o.on).length === 3;
+          const d = this.objects.find(o=>o.type==="door");
+          d.open = on;
+        }
+      },
+      {
+        name:"3. Dragonforge Cavern",
+        width:3000,height:900,
+        bg:["#2b1b3f","#8b2f1d"],
+        spawn:[70,760],
+        goalIndex:2,
+        sequence:["red","blue","gold","green"],
+        sequenceProgress:0,
+        objects:[
+          platform(0,820,420,80), platform(500,740,130), platform(720,650,140),
+          platform(950,570,120), platform(1160,490,150), platform(1420,600,130),
+          platform(1640,510,120), platform(1870,420,120), platform(2110,520,180),
+          platform(2400,420,120), platform(2650,330,260),
+          spike(420,796,80), spike(630,796,90), spike(860,796,1290),
+          moving(1310,700,100,18,"y",210,1.3), moving(1760,650,100,18,"x",180,1.7),
+          switchObj(1000,528,"red","#ef476f"),
+          switchObj(1205,448,"blue","#4cc9f0"),
+          switchObj(1915,378,"gold","#ffd166"),
+          switchObj(2445,378,"green","#67e8a5"),
+          door(2570,130,48,290,"forge"),
+          ingredient(2760,270,2)
+        ],
+        signs:[
+          {x:100,y:775,text:"The forge accepts a color sequence: RED → BLUE → GOLD → GREEN."},
+          {x:1440,y:555,text:"A wrong rune resets the sequence. Watch the colors carefully."}
+        ],
+        objective(){
+          return this.sequenceProgress < 4
+            ? `Enter the forge sequence (${this.sequenceProgress}/4).`
+            : "The Dragonforge is unlocked. Take the Dragon Egg!";
+        },
+        interactSwitch(obj) {
+          const expected = this.sequence[this.sequenceProgress];
+          if (obj.id === expected) {
+            obj.on = true;
+            this.sequenceProgress++;
+            showMessage("Correct rune! " + this.sequenceProgress + " / 4");
+          } else {
+            this.sequenceProgress = 0;
+            this.objects.filter(o=>o.type==="switch").forEach(s=>s.on=false);
+            showMessage("The forge rejects the sequence. Start again!", 2);
+          }
+        },
+        tick() {
+          const d = this.objects.find(o=>o.type==="door");
+          d.open = this.sequenceProgress === 4;
+        }
+      },
+      {
+        name:"4. Observatory of Falling Stars",
+        width:3400,height:900,
+        bg:["#0d1b4c","#6a4c93"],
+        spawn:[70,760],
+        goalIndex:3,
+        timer:48,
+        started:false,
+        objects:[
+          platform(0,820,360,80), platform(450,740,110), platform(650,650,110),
+          platform(860,560,100), platform(1080,470,110), platform(1310,590,100),
+          platform(1540,490,100), platform(1780,390,110), platform(2010,520,100),
+          platform(2250,430,120), platform(2510,340,120), platform(2780,450,130),
+          platform(3090,330,250),
+          spike(360,796,90), spike(560,796,90), spike(760,796,2510),
+          moving(970,690,100,18,"x",190,2.1), moving(1420,680,100,18,"y",250,1.55),
+          moving(1900,650,100,18,"x",230,2.25), moving(2400,600,100,18,"y",260,1.8),
+          switchObj(170,778,"start","#ff4d6d"),
+          ingredient(3210,270,3)
+        ],
+        stars:[],
+        signs:[
+          {x:70,y:775,text:"Activate the comet switch. You will have 48 seconds to reach the sugar."}
+        ],
+        objective(){
+          if (!this.started) return "Press E at the comet switch to begin the timed climb.";
+          return `Reach the Starlight Sugar before time runs out: ${Math.max(0,Math.ceil(this.timer))}s`;
+        },
+        interactSwitch(obj) {
+          if (!this.started) {
+            this.started = true;
+            this.timer = 48;
+            obj.on = true;
+            showMessage("The comet trial has begun!");
+          }
+        },
+        tick(dt) {
+          if (this.started) {
+            this.timer -= dt;
+            if (this.timer <= 0) {
+              this.started = false;
+              this.timer = 48;
+              this.objects.find(o=>o.type==="switch").on = false;
+              respawn("The stars faded. Try the comet trial again!");
+            }
+            if (Math.random() < dt * 3) {
+              this.stars.push({x:camera.x + Math.random()*W, y:camera.y-30, vy:130+Math.random()*150, life:4});
+            }
+            this.stars.forEach(s=>{s.y+=s.vy*dt;s.life-=dt;});
+            this.stars=this.stars.filter(s=>s.life>0);
+          }
+        }
+      },
+      {
+        name:"5. Phoenix Temple",
+        width:3800,height:980,
+        bg:["#44111c","#e85d04"],
+        spawn:[70,840],
+        goalIndex:4,
+        levers:["one","two","three"],
+        objects:[
+          platform(0,900,360,80), platform(430,820,110), platform(620,730,100),
+          platform(800,640,100), platform(1010,540,120), platform(1260,650,100),
+          platform(1480,550,100), platform(1710,450,110), platform(1940,580,110),
+          platform(2180,480,110), platform(2430,380,110), platform(2700,520,120),
+          platform(2960,410,100), platform(3200,320,120), platform(3460,240,250),
+          spike(360,876,70), spike(540,876,80), spike(720,876,3000),
+          moving(1130,790,100,18,"y",240,1.6), moving(1590,700,100,18,"x",200,2.0),
+          moving(2290,680,100,18,"y",280,1.75), moving(2830,660,100,18,"x",240,2.25),
+          switchObj(650,688,"one","#ffd166"),
+          switchObj(1990,538,"two","#ffd166"),
+          switchObj(3000,368,"three","#ffd166"),
+          door(3360,80,50,300,"phoenix"),
+          ingredient(3560,180,4)
+        ],
+        signs:[
+          {x:80,y:855,text:"Three phoenix seals are hidden across the temple. Activate every one."},
+          {x:2250,y:435,text:"The final ascent demands everything you have learned."}
+        ],
+        objective(){
+          const n = this.objects.filter(o=>o.type==="switch"&&o.on).length;
+          return n < 3 ? `Activate all phoenix seals (${n}/3).` : "The sacred chamber is open. Claim the Phoenix Vanilla!";
+        },
+        tick() {
+          const d=this.objects.find(o=>o.type==="door");
+          d.open=this.objects.filter(o=>o.type==="switch"&&o.on).length===3;
+        }
+      },
+      {
+        name:"Finale: The Celestial Kitchen",
+        width:1500,height:720,
+        bg:["#1f7a8c","#bfdbf7"],
+        spawn:[100,590],
+        cooking:true,
+        step:0,
+        mix:0,
+        heat:0,
+        baked:0,
+        stations:[
+          {x:330,y:560,w:90,h:80,type:"prep",label:"PREP"},
+          {x:550,y:560,w:90,h:80,type:"mix",label:"MIX"},
+          {x:780,y:540,w:110,h:100,type:"oven",label:"OVEN"},
+          {x:1030,y:560,w:100,h:80,type:"decorate",label:"DECORATE"}
+        ],
+        objects:[ platform(0,640,1500,80) ],
+        objective(){
+          const texts=[
+            "Go to the prep table and press E to combine the five ingredients.",
+            `Mash the ingredients at the mixer: press E rapidly (${this.mix}/12).`,
+            "Heat the oven: hold E until the flame meter is full.",
+            `Bake the cake: stay near the oven (${Math.floor(this.baked)}%).`,
+            "Take the cake to the decorating table and press E.",
+            "The Legendary Cake is complete!"
+          ];
+          return texts[this.step] || texts[0];
+        },
+        tick(dt) {
+          if (this.step===2) {
+            const oven=this.stations[2];
+            if (near(player,oven,110) && keys.e) {
+              this.heat=clamp(this.heat+dt*40,0,100);
+              if (this.heat>=100) {
+                this.step=3;
+                showMessage("Perfect heat! Now let the cake bake.");
+              }
+            } else {
+              this.heat=clamp(this.heat-dt*12,0,100);
+            }
+          } else if (this.step===3) {
+            const oven=this.stations[2];
+            if (near(player,oven,125)) {
+              this.baked=clamp(this.baked+dt*18,0,100);
+              if (this.baked>=100) {
+                this.step=4;
+                showMessage("The cake is baked! Time to decorate.");
+              }
+            }
+          }
+        }
+      }
+    ];
+  }
+
+  let levels = createLevels();
+
+  function loadLevel(index) {
+    current = index;
+    level = levels[current];
+    levelTime = 0;
+    camera.x = camera.y = 0;
+    [player.spawnX,player.spawnY] = level.spawn;
+    player.x=player.spawnX; player.y=player.spawnY; player.vx=player.vy=0;
+    updateHUD();
+    showMessage(current < 5 ? `Level ${current+1}: ${level.name.split(". ").pop()}` : "Final Level: Cook the Legendary Cake!", 2.5);
+  }
+
+  function respawn(msg="You fell. Back to the last checkpoint!") {
+    deaths++;
+    player.x=player.spawnX; player.y=player.spawnY; player.vx=player.vy=0;
+    showMessage(msg);
+  }
+
+  function finishLevel(index) {
+    if (!collected.includes(index)) collected.push(index);
+    updateHUD();
+    burst(player.x+15,player.y+10,45,"#ffd166");
+    if (current < 4) {
+      state="transition";
+      setTimeout(()=>{ levels=createLevels(); loadLevel(current+1); state="playing"; }, 1200);
+      showMessage(`${ingredients[index].name} acquired!`, 1.2);
+    } else {
+      state="transition";
+      setTimeout(()=>{ levels=createLevels(); loadLevel(5); state="playing"; }, 1500);
+      showMessage("All ingredients collected! Return to the Celestial Kitchen!", 1.5);
+    }
+  }
+
+  function burst(x,y,count,color) {
+    for(let i=0;i<count;i++) particles.push({
+      x,y,vx:(Math.random()-.5)*260,vy:(Math.random()-.8)*260,
+      life:.5+Math.random(),color,size:2+Math.random()*5
+    });
+  }
+
+  function interact() {
+    if (!level) return;
+
+    if (level.cooking) {
+      const station=level.stations.find(s=>near(player,s,100));
+      if (!station) return;
+      if (level.step===0 && station.type==="prep") {
+        level.step=1;
+        burst(station.x+45,station.y,35,"#67e8a5");
+        showMessage("Ingredients prepared! Now mash and mix.");
+      } else if (level.step===1 && station.type==="mix") {
+        level.mix++;
+        burst(station.x+45,station.y+20,5,"#bfdbf7");
+        if (level.mix>=12) {
+          level.step=2;
+          showMessage("Batter mixed! Heat the oven by holding E.");
+        }
+      } else if (level.step===4 && station.type==="decorate") {
+        level.step=5;
+        burst(station.x+50,station.y,100,"#ffd166");
+        winGame();
+      }
+      return;
+    }
+
+    for (const o of level.objects) {
+      if (o.type==="switch" && near(player,o,70)) {
+        if (level.interactSwitch) level.interactSwitch(o);
+        else if (!o.on) {
+          o.on=true;
+          burst(o.x+15,o.y+15,18,o.color);
+          showMessage("Seal activated!");
+        }
+      }
+    }
+  }
+
+  function winGame() {
+    state="won";
+    setTimeout(()=>{
+      overlay.style.display="grid";
+      card.innerHTML=`
+        <h1>The Legendary<br>Cake Is Complete!</h1>
+        <p>You crossed five deadly realms, solved ancient mechanisms, and baked a cake powerful enough to light the Moon Festival for one thousand years.</p>
+        <p><strong>Ingredients found:</strong> 5 / 5<br><strong>Falls survived:</strong> ${deaths}</p>
+        <button id="againBtn">Play Again</button>`;
+      document.getElementById("againBtn").onclick=resetGame;
+    },700);
+  }
+
+  function resetGame() {
+    collected=[];
+    deaths=0;
+    levels=createLevels();
+    overlay.style.display="none";
+    state="playing";
+    loadLevel(0);
+  }
+
+  function updatePlayer(dt) {
+    const left=keys.a||keys.arrowleft;
+    const right=keys.d||keys.arrowright;
+    const jumpPressed=pressed[" "]||pressed.w||pressed.arrowup;
+
+    if (left) { player.vx-=0.85; player.face=-1; }
+    if (right) { player.vx+=0.85; player.face=1; }
+    player.vx*=player.onGround?.78:.91;
+    player.vx=clamp(player.vx,-player.speed,player.speed);
+
+    if (player.onGround) player.coyote=.12;
+    else player.coyote-=dt;
+    if (jumpPressed) player.jumpBuffer=.12;
+    else player.jumpBuffer-=dt;
+
+    if (player.jumpBuffer>0 && player.coyote>0) {
+      player.vy=-player.jump;
+      player.jumpBuffer=0; player.coyote=0; player.onGround=false;
+      burst(player.x+15,player.y+player.h,7,"#ffffff");
+    }
+    if (!(keys[" "]||keys.w||keys.arrowup) && player.vy<0) player.vy+=0.55;
+
+    player.vy+=0.58;
+    player.vy=Math.min(player.vy,15);
+
+    const solids=level.objects.filter(o=>
+      ["solid","moving"].includes(o.type) || (o.type==="door"&&!o.open)
+    );
+
+    player.x+=player.vx;
+    for(const o of solids) {
+      if(hit(player,o)) {
+        if(player.vx>0) player.x=o.x-player.w;
+        else if(player.vx<0) player.x=o.x+o.w;
+        player.vx=0;
+      }
+    }
+
+    player.onGround=false;
+    player.y+=player.vy;
+    for(const o of solids) {
+      if(hit(player,o)) {
+        if(player.vy>0) {
+          player.y=o.y-player.h;
+          player.vy=0;
+          player.onGround=true;
+          if(o.type==="moving") {
+            player.x += o.x-o.prevX;
+            player.y += o.y-o.prevY;
+          }
+        } else if(player.vy<0) {
+          player.y=o.y+o.h;
+          player.vy=0;
+        }
+      }
+    }
+
+    player.x=clamp(player.x,0,level.width-player.w);
+    if(player.y>level.height+120) respawn();
+
+    for(const o of level.objects) {
+      if(o.type==="hazard" && hit(player,o)) respawn("Ouch! The mountain wins that round.");
+      if(o.type==="ingredient" && !o.collected && hit(player,o)) {
+        if(current===3 && !level.started) continue;
+        o.collected=true;
+        finishLevel(o.index);
+      }
+    }
+
+    if(pressed.e) interact();
+    if(pressed.r) loadLevel(current);
+
+    camera.x += (clamp(player.x-W*.38,0,Math.max(0,level.width-W))-camera.x)*.09;
+    camera.y += (clamp(player.y-H*.55,0,Math.max(0,level.height-H))-camera.y)*.08;
+  }
+
+  function updateObjects(dt) {
+    for(const o of level.objects) {
+      if(o.type==="moving") {
+        o.prevX=o.x; o.prevY=o.y;
+        const wave=Math.sin(levelTime*o.speed+o.phase)*o.range;
+        if(o.axis==="x") o.x=o.baseX+wave;
+        else o.y=o.baseY+wave;
+      }
+    }
+    if(level.tick) level.tick(dt);
+  }
+
+  function updateParticles(dt) {
+    particles.forEach(p=>{
+      p.x+=p.vx*dt; p.y+=p.vy*dt;
+      p.vy+=360*dt; p.life-=dt;
+    });
+    particles=particles.filter(p=>p.life>0);
+  }
+
+  function drawBackground() {
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,level.bg[0]); g.addColorStop(1,level.bg[1]);
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    ctx.globalAlpha=.18;
+    for(let i=0;i<18;i++) {
+      const x=((i*251-camera.x*.18)%(W+300))-100;
+      const y=70+(i%6)*85-camera.y*.08;
+      ctx.beginPath();
+      ctx.arc(x,y,28+(i%4)*13,0,Math.PI*2);
+      ctx.fillStyle="#fff";ctx.fill();
+    }
+    ctx.globalAlpha=1;
+
+    if(current===0) {
+      ctx.fillStyle="rgba(35,80,110,.25)";
+      for(let i=0;i<8;i++) {
+        const x=i*420-camera.x*.35;
+        ctx.beginPath();ctx.moveTo(x,H);ctx.lineTo(x+200,200);ctx.lineTo(x+430,H);ctx.fill();
+      }
+    } else if(current===2 || current===4) {
+      ctx.fillStyle="rgba(255,80,20,.16)";
+      for(let i=0;i<12;i++) {
+        const x=i*290-camera.x*.22;
+        ctx.beginPath();ctx.moveTo(x,H);ctx.lineTo(x+90,350);ctx.lineTo(x+180,H);ctx.fill();
+      }
+    } else if(current===3) {
+      ctx.fillStyle="white";
+      for(let i=0;i<70;i++) {
+        const x=(i*97)%W, y=(i*53)%H;
+        ctx.fillRect(x,y,2,2);
+      }
+    }
+  }
+
+  function drawWorld() {
+    ctx.save();
+    ctx.translate(-camera.x,-camera.y);
+
+    for(const o of level.objects) drawObject(o);
+    if(level.signs) level.signs.forEach(drawSign);
+    if(level.stars) {
+      level.stars.forEach(s=>{
+        ctx.fillStyle="#fff7ad";
+        ctx.beginPath();ctx.arc(s.x,s.y,4,0,Math.PI*2);ctx.fill();
+        ctx.fillRect(s.x-1,s.y-18,2,18);
+      });
+    }
+    if(level.cooking) drawKitchen();
+
+    drawPlayer();
+
+    particles.forEach(p=>{
+      ctx.globalAlpha=clamp(p.life,0,1);
+      ctx.fillStyle=p.color;
+      ctx.fillRect(p.x,p.y,p.size,p.size);
+    });
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+
+  function drawObject(o) {
+    if(o.type==="solid"||o.type==="moving") {
+      ctx.fillStyle=o.type==="moving"?"#f4a261":"#394867";
+      ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.fillStyle=o.type==="moving"?"#ffd166":"#6c7aa1";
+      ctx.fillRect(o.x,o.y,o.w,6);
+      for(let x=o.x+8;x<o.x+o.w;x+=24) {
+        ctx.fillStyle="rgba(255,255,255,.12)";
+        ctx.fillRect(x,o.y+10,10,5);
+      }
+    } else if(o.type==="hazard") {
+      ctx.fillStyle="#ff4d6d";
+      const count=Math.max(1,Math.floor(o.w/20));
+      for(let i=0;i<count;i++) {
+        const x=o.x+i*o.w/count;
+        ctx.beginPath();
+        ctx.moveTo(x,o.y+o.h);
+        ctx.lineTo(x+o.w/count/2,o.y);
+        ctx.lineTo(x+o.w/count,o.y+o.h);
+        ctx.fill();
+      }
+    } else if(o.type==="ingredient" && !o.collected) {
+      const bob=Math.sin(levelTime*3+o.x)*7;
+      ctx.save();
+      ctx.translate(o.x+17,o.y+17+bob);
+      ctx.rotate(levelTime*.8);
+      ctx.fillStyle="#ffd166";
+      ctx.beginPath();
+      for(let i=0;i<8;i++) {
+        const a=i*Math.PI/4;
+        const r=i%2?9:18;
+        const px=Math.cos(a)*r, py=Math.sin(a)*r;
+        i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+      }
+      ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff7c2";ctx.beginPath();ctx.arc(0,0,6,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    } else if(o.type==="switch") {
+      ctx.fillStyle=o.on?o.color:"#252a44";
+      ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.strokeStyle=o.color;ctx.lineWidth=3;ctx.strokeRect(o.x,o.y,o.w,o.h);
+      ctx.fillStyle=o.on?"#fff":"#777";
+      ctx.beginPath();ctx.arc(o.x+o.w/2,o.y+12,7,0,Math.PI*2);ctx.fill();
+    } else if(o.type==="door" && !o.open) {
+      ctx.fillStyle="#1b1f3a";ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.fillStyle="#ffd166";
+      for(let y=o.y+12;y<o.y+o.h;y+=34) ctx.fillRect(o.x+7,y,o.w-14,5);
+    }
+  }
+
+  function drawSign(s) {
+    ctx.fillStyle="#6b3f22";ctx.fillRect(s.x,s.y,9,45);
+    ctx.fillStyle="#f3d5a7";ctx.fillRect(s.x-16,s.y-38,190,42);
+    ctx.fillStyle="#3a2518";ctx.font="12px system-ui";
+    wrapText(s.text,s.x-8,s.y-22,174,14);
+  }
+
+  function wrapText(text,x,y,maxWidth,lineHeight) {
+    const words=text.split(" "); let line="";
+    for(let n=0;n<words.length;n++) {
+      const test=line+words[n]+" ";
+      if(ctx.measureText(test).width>maxWidth && n>0) {
+        ctx.fillText(line,x,y);line=words[n]+" ";y+=lineHeight;
+      } else line=test;
+    }
+    ctx.fillText(line,x,y);
+  }
+
+  function drawPlayer() {
+    const x=player.x,y=player.y;
+    ctx.fillStyle="#22223b";
+    ctx.fillRect(x+6,y+5,18,22);
+    ctx.fillStyle="#f7c59f";
+    ctx.fillRect(x+8,y+7,14,12);
+    ctx.fillStyle="#e63946";
+    ctx.fillRect(x+3,y+25,24,15);
+    ctx.fillStyle="#f1faee";
+    ctx.fillRect(x+5,y+40,8,4);ctx.fillRect(x+18,y+40,8,4);
+    ctx.fillStyle="#2b2d42";
+    const eyeX=player.face>0?18:11;
+    ctx.fillRect(x+eyeX,y+10,3,3);
+    ctx.fillStyle="#ffd166";
+    ctx.beginPath();
+    ctx.moveTo(x+5,y+7);ctx.lineTo(x+15,y-6);ctx.lineTo(x+25,y+7);ctx.fill();
+  }
+
+  function drawKitchen() {
+    ctx.fillStyle="#d9a066";
+    ctx.fillRect(0,520,1500,120);
+    ctx.fillStyle="#f2cc8f";
+    for(const s of level.stations) {
+      ctx.fillStyle=s.type==="oven"?"#343a40":"#8d5524";
+      ctx.fillRect(s.x,s.y,s.w,s.h);
+      ctx.fillStyle="#fff";
+      ctx.font="bold 13px system-ui";
+      ctx.fillText(s.label,s.x+10,s.y+20);
+      if(s.type==="oven") {
+        ctx.fillStyle="#ff7b00";
+        ctx.fillRect(s.x+20,s.y+42,70,38);
+        if(level.step>=2 && level.step<=3) {
+          ctx.fillStyle="#ffd166";
+          ctx.fillRect(s.x+18,s.y-16,74*(level.step===2?level.heat:level.baked)/100,8);
+          ctx.strokeStyle="#fff";ctx.strokeRect(s.x+18,s.y-16,74,8);
+        }
+      }
+    }
+    ctx.fillStyle="#fff3b0";
+    ctx.beginPath();ctx.arc(1230,585,42,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#ef476f";ctx.beginPath();ctx.arc(1230,575,35,Math.PI,0);ctx.fill();
+    ctx.fillStyle="#ffd166";
+    ctx.fillRect(1210,548,8,22);ctx.fillRect(1226,544,8,26);ctx.fillRect(1242,550,8,20);
+  }
+
+  function draw() {
+    if(!level) return;
+    drawBackground();
+    drawWorld();
+  }
+
+  let last=performance.now();
+  function loop(now) {
+    const dt=Math.min((now-last)/1000,.033);
+    last=now;
+    if(state==="playing") {
+      levelTime+=dt;
+      updateObjects(dt);
+      updatePlayer(dt);
+      updateParticles(dt);
+      if(messageTimer>0) {
+        messageTimer-=dt;
+        if(messageTimer<=0) messageEl.classList.remove("show");
+      }
+      updateHUD();
+    }
+    draw();
+    for(const k in pressed) delete pressed[k];
+    requestAnimationFrame(loop);
+  }
+
+  startBtn.onclick=()=>{
+    overlay.style.display="none";
+    state="playing";
+    levels=createLevels();
+    loadLevel(0);
+  };
+
+  level=levels[0];
+  [player.spawnX,player.spawnY]=level.spawn;
+  player.x=player.spawnX; player.y=player.spawnY;
+  updateHUD();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
