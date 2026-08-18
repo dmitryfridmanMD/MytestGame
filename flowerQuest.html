@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Legendary Flower Quest</title>
+<style>
+  html, body {
+    margin: 0;
+    overflow: hidden;
+    background: #10172a;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    image-rendering: pixelated;
+  }
+  #help {
+    position: fixed;
+    left: 14px;
+    bottom: 12px;
+    background: rgba(0,0,0,.48);
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    pointer-events: none;
+    max-width: 520px;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="help">
+  Move: A/D or ←/→ · Jump: W/↑/Space · Attack: J · Dash: K · Interact: E · Shop: B · Restart: R
+</div>
+<script>
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = Math.max(960, innerWidth);
+  canvas.height = Math.max(540, innerHeight);
+}
+addEventListener("resize", resize);
+resize();
+
+const keys = Object.create(null);
+const pressed = Object.create(null);
+
+addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (!keys[k]) pressed[k] = true;
+  keys[k] = true;
+  if ([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
+});
+addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+const rand = (a,b) => a + Math.random()*(b-a);
+const overlap = (a,b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+
+let world, player, camera, gameState, particles, projectiles, messages, levelIndex;
+
+const FLOWERS = {
+  rose:    {name:"Ember Rose", color:"#ff4f70", power:"Fire attack"},
+  lily:    {name:"Sky Lily", color:"#7ad8ff", power:"Double jump"},
+  orchid:  {name:"Storm Orchid", color:"#c38cff", power:"Air dash"},
+  lotus:   {name:"Moon Lotus", color:"#f8f0ff", power:"Shield"},
+  legend:  {name:"Legendary Sunbloom", color:"#ffd84d", power:"Overpowered mode"}
+};
+
+const LEVELS = [
+  {
+    name:"Petalwood Meadow",
+    width:3600,
+    bg:["#75d3ff","#d8f7ff"],
+    spawn:{x:100,y:380},
+    platforms:[
+      [0,500,650,80],[760,450,220,30],[1080,390,180,30],[1360,330,180,30],
+      [1680,430,260,30],[2040,360,190,30],[2320,290,180,30],[2640,420,260,30],
+      [3070,350,260,30],[3400,500,300,80]
+    ],
+    moving:[
+      {x:620,y:390,w:120,h:20,axis:"x",range:160,speed:1.3},
+      {x:1940,y:260,w:110,h:20,axis:"y",range:160,speed:1.1}
+    ],
+    hazards:[[980,490,95,20],[1540,490,135,20],[2900,490,160,20]],
+    flowers:[
+      {x:500,y:450,type:"coin"},{x:820,y:400,type:"coin"},{x:1140,y:340,type:"coin"},
+      {x:1400,y:280,type:"coin"},{x:1770,y:380,type:"coin"},{x:2120,y:310,type:"coin"},
+      {x:2380,y:240,type:"coin"},{x:2720,y:370,type:"coin"},{x:3200,y:300,type:"coin"},
+      {x:3470,y:450,type:"rose"}
+    ],
+    enemies:[
+      {x:900,y:410,type:"beetle"},{x:1800,y:390,type:"beetle"},{x:2750,y:380,type:"thorn"}
+    ],
+    signs:[
+      {x:200,y:450,text:"Collect flower coins. More flowers increase your attack power!"},
+      {x:1480,y:280,text:"Parkour tip: hold toward a wall and jump to wall-jump."},
+      {x:3290,y:450,text:"The Ember Rose waits ahead. Defeat guardians and reach it!"}
+    ],
+    exit:{x:3520,y:410,w:55,h:90,requires:"rose"},
+    puzzle:null
+  },
+  {
+    name:"Skyvine Ruins",
+    width:4100,
+    bg:["#95a6ff","#eef0ff"],
+    spawn:{x:90,y:420},
+    platforms:[
+      [0,500,520,80],[660,440,170,25],[920,360,170,25],[1180,280,180,25],
+      [1470,390,170,25],[1770,300,180,25],[2050,220,180,25],[2360,360,170,25],
+      [2650,280,170,25],[2940,200,190,25],[3290,330,220,25],[3650,250,180,25],
+      [3880,500,300,80]
+    ],
+    moving:[
+      {x:500,y:400,w:120,h:20,axis:"x",range:190,speed:1.7},
+      {x:1340,y:260,w:100,h:20,axis:"y",range:170,speed:1.4},
+      {x:2230,y:160,w:110,h:20,axis:"x",range:180,speed:1.6},
+      {x:3470,y:220,w:110,h:20,axis:"y",range:150,speed:1.2}
+    ],
+    hazards:[[520,490,140,20],[830,490,330,20],[1350,490,390,20],[1940,490,410,20],[2520,490,700,20],[3510,490,370,20]],
+    flowers:[
+      {x:700,y:390,type:"coin"},{x:960,y:310,type:"coin"},{x:1220,y:230,type:"coin"},
+      {x:1510,y:340,type:"coin"},{x:1810,y:250,type:"coin"},{x:2090,y:170,type:"coin"},
+      {x:2400,y:310,type:"coin"},{x:2690,y:230,type:"coin"},{x:2980,y:150,type:"coin"},
+      {x:3350,y:280,type:"coin"},{x:3700,y:200,type:"lily"}
+    ],
+    enemies:[
+      {x:1000,y:320,type:"bee"},{x:1850,y:260,type:"bee"},{x:3030,y:160,type:"bee"},
+      {x:3370,y:290,type:"thorn"}
+    ],
+    signs:[
+      {x:140,y:450,text:"Skyvine Ruins: moving platforms and wall jumps ahead."},
+      {x:2860,y:160,text:"The Sky Lily grants a double jump."}
+    ],
+    exit:{x:3970,y:410,w:55,h:90,requires:"lily"},
+    puzzle:{type:"switches", switches:[{x:2420,y:315},{x:2720,y:235},{x:3010,y:155}], gate:{x:3230,y:200,w:35,h:300}}
+  },
+  {
+    name:"Stormpetal Peaks",
+    width:4700,
+    bg:["#49557a","#b5c7e8"],
+    spawn:{x:90,y:420},
+    platforms:[
+      [0,500,500,80],[620,420,130,25],[850,330,130,25],[1080,240,130,25],
+      [1360,360,150,25],[1650,270,150,25],[1940,180,150,25],[2240,330,170,25],
+      [2540,250,160,25],[2840,160,170,25],[3180,300,180,25],[3510,210,170,25],
+      [3840,120,170,25],[4160,290,220,25],[4460,500,320,80]
+    ],
+    moving:[
+      {x:500,y:370,w:100,h:20,axis:"y",range:180,speed:1.5},
+      {x:1200,y:220,w:120,h:20,axis:"x",range:170,speed:1.8},
+      {x:2090,y:260,w:110,h:20,axis:"y",range:180,speed:1.5},
+      {x:3000,y:220,w:120,h:20,axis:"x",range:200,speed:2},
+      {x:4000,y:180,w:100,h:20,axis:"y",range:180,speed:1.6}
+    ],
+    hazards:[[500,490,120,20],[750,490,600,20],[1510,490,720,20],[2410,490,1040,20],[3690,490,770,20]],
+    flowers:[
+      {x:660,y:370,type:"coin"},{x:890,y:280,type:"coin"},{x:1120,y:190,type:"coin"},
+      {x:1400,y:310,type:"coin"},{x:1690,y:220,type:"coin"},{x:1980,y:130,type:"coin"},
+      {x:2290,y:280,type:"coin"},{x:2580,y:200,type:"coin"},{x:2880,y:110,type:"coin"},
+      {x:3230,y:250,type:"coin"},{x:3550,y:160,type:"coin"},{x:3880,y:70,type:"coin"},
+      {x:4240,y:240,type:"orchid"}
+    ],
+    enemies:[
+      {x:920,y:290,type:"bee"},{x:1700,y:230,type:"thorn"},{x:2600,y:210,type:"bee"},
+      {x:3260,y:260,type:"thorn"},{x:4200,y:250,type:"storm"}
+    ],
+    signs:[
+      {x:120,y:450,text:"Stormpetal Peaks: use your double jump to cross enormous gaps."},
+      {x:3970,y:75,text:"The Storm Orchid grants an air dash. Press K."}
+    ],
+    exit:{x:4540,y:410,w:55,h:90,requires:"orchid"},
+    puzzle:null
+  },
+  {
+    name:"Moonroot Temple",
+    width:4200,
+    bg:["#201f42","#7b72a7"],
+    spawn:{x:80,y:420},
+    platforms:[
+      [0,500,620,80],[760,420,210,25],[1080,340,210,25],[1400,260,210,25],
+      [1720,390,220,25],[2050,310,220,25],[2380,230,220,25],[2710,360,220,25],
+      [3040,280,220,25],[3370,200,220,25],[3700,360,220,25],[3950,500,320,80]
+    ],
+    moving:[
+      {x:620,y:390,w:120,h:20,axis:"x",range:140,speed:1.4},
+      {x:1580,y:240,w:110,h:20,axis:"y",range:170,speed:1.4},
+      {x:2580,y:220,w:110,h:20,axis:"x",range:160,speed:1.5},
+      {x:3570,y:180,w:110,h:20,axis:"y",range:170,speed:1.3}
+    ],
+    hazards:[[620,490,140,20],[970,490,740,20],[1940,490,720,20],[2930,490,940,20]],
+    flowers:[
+      {x:810,y:370,type:"coin"},{x:1130,y:290,type:"coin"},{x:1450,y:210,type:"coin"},
+      {x:1770,y:340,type:"coin"},{x:2100,y:260,type:"coin"},{x:2430,y:180,type:"coin"},
+      {x:2760,y:310,type:"coin"},{x:3090,y:230,type:"coin"},{x:3420,y:150,type:"coin"},
+      {x:3750,y:310,type:"lotus"}
+    ],
+    enemies:[
+      {x:850,y:380,type:"shadow"},{x:1820,y:350,type:"shadow"},
+      {x:2800,y:320,type:"shadow"},{x:3450,y:160,type:"thorn"}
+    ],
+    signs:[
+      {x:120,y:450,text:"Moonroot Temple: activate the three moon stones to open the gate."},
+      {x:3600,y:150,text:"The Moon Lotus surrounds you with a rechargeable shield."}
+    ],
+    exit:{x:4040,y:410,w:55,h:90,requires:"lotus"},
+    puzzle:{type:"switches", switches:[{x:1170,y:295},{x:2140,y:265},{x:3130,y:235}], gate:{x:3650,y:200,w:35,h:300}}
+  },
+  {
+    name:"Sunbloom Citadel",
+    width:5000,
+    bg:["#ff9b5e","#ffe6a8"],
+    spawn:{x:80,y:420},
+    platforms:[
+      [0,500,720,80],[850,410,180,25],[1140,320,180,25],[1430,230,180,25],
+      [1750,360,200,25],[2080,270,200,25],[2410,180,200,25],[2740,340,210,25],
+      [3090,250,210,25],[3440,160,210,25],[3790,310,220,25],[4150,220,220,25],
+      [4500,500,560,80]
+    ],
+    moving:[
+      {x:720,y:390,w:110,h:20,axis:"x",range:140,speed:1.7},
+      {x:1600,y:210,w:110,h:20,axis:"y",range:170,speed:1.5},
+      {x:2610,y:220,w:110,h:20,axis:"x",range:170,speed:1.9},
+      {x:3650,y:170,w:110,h:20,axis:"y",range:170,speed:1.6},
+      {x:4350,y:260,w:110,h:20,axis:"x",range:150,speed:1.8}
+    ],
+    hazards:[[720,490,130,20],[1030,490,690,20],[1950,490,750,20],[2950,490,790,20],[4010,490,470,20]],
+    flowers:[
+      {x:900,y:360,type:"coin"},{x:1190,y:270,type:"coin"},{x:1480,y:180,type:"coin"},
+      {x:1800,y:310,type:"coin"},{x:2130,y:220,type:"coin"},{x:2460,y:130,type:"coin"},
+      {x:2790,y:290,type:"coin"},{x:3140,y:200,type:"coin"},{x:3490,y:110,type:"coin"},
+      {x:3840,y:260,type:"coin"},{x:4200,y:170,type:"coin"}
+    ],
+    enemies:[
+      {x:920,y:370,type:"storm"},{x:1490,y:190,type:"shadow"},{x:2140,y:230,type:"thorn"},
+      {x:2820,y:300,type:"storm"},{x:3500,y:120,type:"shadow"}
+    ],
+    signs:[
+      {x:130,y:450,text:"Final path: master every flower power to reach the Sunbloom Guardian."}
+    ],
+    exit:null,
+    puzzle:null,
+    boss:{x:4660,y:350}
+  }
+];
+
+function resetGame() {
+  levelIndex = 0;
+  gameState = "playing";
+  particles = [];
+  projectiles = [];
+  messages = [];
+  player = {
+    x:100,y:350,w:34,h:48,vx:0,vy:0,
+    speed:4.2,jump:11.5,onGround:false,
+    jumps:0,maxJumps:1,wallDir:0,
+    hp:100,maxHp:100,shield:0,maxShield:0,
+    damage:12,coins:0,flowers:0,
+    powers:{rose:false,lily:false,orchid:false,lotus:false,legend:false},
+    attackCd:0,dashCd:0,dashing:0,invuln:0,
+    facing:1,checkpoint:null
+  };
+  camera = {x:0,y:0};
+  loadLevel(0, false);
+}
+
+function loadLevel(i, keepStats=true) {
+  levelIndex = i;
+  const src = LEVELS[i];
+  world = JSON.parse(JSON.stringify(src));
+  world.platforms = world.platforms.map(p => ({x:p[0],y:p[1],w:p[2],h:p[3]}));
+  world.hazards = world.hazards.map(p => ({x:p[0],y:p[1],w:p[2],h:p[3]}));
+  world.flowers.forEach(f => {f.w=26; f.h=26; f.collected=false;});
+  world.enemies.forEach(e => setupEnemy(e));
+  if (world.moving) world.moving.forEach(m => {m.baseX=m.x;m.baseY=m.y;m.t=rand(0,Math.PI*2);});
+  if (world.puzzle) {
+    world.puzzle.switches.forEach(s => {s.w=34;s.h=18;s.on=false;});
+    world.puzzle.gate.open=false;
+  }
+  if (world.boss) {
+    world.boss = {x:world.boss.x,y:world.boss.y,w:120,h:150,vx:0,vy:0,hp:500,maxHp:500,alive:true,attack:0,phase:1};
+  }
+  player.x = src.spawn.x;
+  player.y = src.spawn.y;
+  player.vx = player.vy = 0;
+  player.checkpoint = {x:src.spawn.x,y:src.spawn.y};
+  camera.x=0;
+  showMessage(src.name, 180);
+}
+
+function setupEnemy(e) {
+  const stats = {
+    beetle:{w:42,h:28,hp:30,speed:1.2,damage:10,color:"#67422b"},
+    thorn:{w:40,h:45,hp:45,speed:0.8,damage:14,color:"#285c2b"},
+    bee:{w:38,h:30,hp:35,speed:1.5,damage:12,color:"#ffd83d"},
+    storm:{w:42,h:48,hp:60,speed:1.1,damage:16,color:"#7358cc"},
+    shadow:{w:40,h:54,hp:70,speed:1.2,damage:18,color:"#25213a"}
+  }[e.type];
+  Object.assign(e, stats, {maxHp:stats.hp,vx:stats.speed,vy:0,alive:true,hitCd:0,shootCd:rand(60,120)});
+}
+
+function showMessage(text, frames=140) {
+  messages.push({text,frames});
+}
+
+function spawnParticles(x,y,color,count=10) {
+  for (let i=0;i<count;i++) particles.push({
+    x,y,vx:rand(-3,3),vy:rand(-4,1),life:rand(20,45),color,size:rand(2,6)
+  });
+}
+
+function rectMove(ent, platforms) {
+  ent.x += ent.vx;
+  for (const p of platforms) {
+    if (overlap(ent,p)) {
+      if (ent.vx > 0) ent.x = p.x-ent.w;
+      else if (ent.vx < 0) ent.x = p.x+p.w;
+      ent.vx = 0;
+    }
+  }
+  ent.y += ent.vy;
+  ent.onGround = false;
+  for (const p of platforms) {
+    if (overlap(ent,p)) {
+      if (ent.vy > 0) {
+        ent.y = p.y-ent.h; ent.vy=0; ent.onGround=true;
+      } else if (ent.vy < 0) {
+        ent.y = p.y+p.h; ent.vy=0;
+      }
+    }
+  }
+}
+
+function updateMovingPlatforms() {
+  for (const m of world.moving || []) {
+    m.t += 0.018*m.speed;
+    if (m.axis==="x") m.x = m.baseX + Math.sin(m.t)*m.range;
+    else m.y = m.baseY + Math.sin(m.t)*m.range;
+  }
+}
+
+function updatePlayer() {
+  if (gameState !== "playing") return;
+
+  const left = keys["a"] || keys["arrowleft"];
+  const right = keys["d"] || keys["arrowright"];
+  const jumpPress = pressed["w"] || pressed["arrowup"] || pressed[" "];
+
+  if (player.dashing > 0) {
+    player.dashing--;
+    player.vx = player.facing*11;
+    player.vy *= .75;
+  } else {
+    const target = (right?1:0)-(left?1:0);
+    player.vx += (target*player.speed-player.vx)*0.25;
+    if (target) player.facing = target;
+    player.vy += 0.58;
+    player.vy = Math.min(player.vy, 14);
+  }
+
+  const allPlatforms = [...world.platforms, ...(world.moving||[])];
+  if (world.puzzle && !world.puzzle.gate.open) allPlatforms.push(world.puzzle.gate);
+
+  player.wallDir = 0;
+  const probeL={x:player.x-3,y:player.y+3,w:3,h:player.h-6};
+  const probeR={x:player.x+player.w,y:player.y+3,w:3,h:player.h-6};
+  if (allPlatforms.some(p=>overlap(probeL,p))) player.wallDir=-1;
+  if (allPlatforms.some(p=>overlap(probeR,p))) player.wallDir=1;
+
+  if (jumpPress) {
+    if (player.onGround) {
+      player.vy = -player.jump;
+      player.jumps = 1;
+      spawnParticles(player.x+player.w/2,player.y+player.h,"#ffffff",6);
+    } else if (player.wallDir) {
+      player.vy = -player.jump*.92;
+      player.vx = -player.wallDir*7;
+      player.facing = -player.wallDir;
+      player.jumps = 1;
+      spawnParticles(player.x+player.w/2,player.y+player.h/2,"#c8efff",8);
+    } else if (player.jumps < player.maxJumps) {
+      player.vy = -player.jump*.92;
+      player.jumps++;
+      spawnParticles(player.x+player.w/2,player.y+player.h,"#7ad8ff",10);
+    }
+  }
+
+  if ((pressed["k"] || pressed["shift"]) && player.powers.orchid && player.dashCd<=0) {
+    player.dashing=12;
+    player.dashCd=55;
+    player.invuln=16;
+    spawnParticles(player.x+player.w/2,player.y+player.h/2,FLOWERS.orchid.color,16);
+  }
+
+  if (pressed["j"] && player.attackCd<=0) {
+    player.attackCd = player.powers.rose ? 18 : 26;
+    const hit = {x:player.facing>0?player.x+player.w:player.x-54,y:player.y+8,w:54,h:34};
+    for (const e of world.enemies) {
+      if (e.alive && overlap(hit,e)) damageEnemy(e, player.damage + player.flowers*1.2);
+    }
+    if (world.boss && world.boss.alive && overlap(hit,world.boss)) damageBoss(player.damage + player.flowers*1.2);
+    if (player.powers.rose) {
+      projectiles.push({x:player.x+player.w/2,y:player.y+20,vx:player.facing*8,vy:0,w:16,h:10,life:70,damage:player.damage*.7,color:"#ff674f",friendly:true});
+    }
+    spawnParticles(hit.x+hit.w/2,hit.y+hit.h/2,player.powers.rose?"#ff674f":"#ffffff",5);
+  }
+
+  rectMove(player, allPlatforms);
+
+  if (player.onGround) player.jumps=0;
+  if (player.wallDir && player.vy>2 && !player.onGround) player.vy=Math.min(player.vy,3.2);
+
+  for (const h of world.hazards) if (overlap(player,h)) hurtPlayer(16);
+  if (player.y > 700) respawnPlayer();
+
+  for (const f of world.flowers) {
+    if (!f.collected && overlap(player,f)) {
+      f.collected=true;
+      if (f.type==="coin") {
+        player.coins++;
+        player.flowers++;
+        player.damage += .6;
+        showMessage("Flower Coin +1 · Power increased!",70);
+        spawnParticles(f.x+13,f.y+13,"#ffd84d",12);
+      } else {
+        gainPower(f.type);
+      }
+    }
+  }
+
+  if (world.puzzle) {
+    for (const s of world.puzzle.switches) {
+      if (!s.on && overlap(player,{x:s.x-6,y:s.y-20,w:s.w+12,h:s.h+24}) && pressed["e"]) {
+        s.on=true;
+        spawnParticles(s.x+15,s.y,"#c8b6ff",12);
+        showMessage("Moon stone activated!",80);
+      }
+    }
+    if (world.puzzle.switches.every(s=>s.on) && !world.puzzle.gate.open) {
+      world.puzzle.gate.open=true;
+      showMessage("Puzzle solved! The gate opens.",120);
+    }
+  }
+
+  for (const sign of world.signs) {
+    if (Math.abs(player.x-sign.x)<80 && pressed["e"]) showMessage(sign.text,220);
+  }
+
+  if (world.exit && overlap(player,world.exit)) {
+    if (player.powers[world.exit.requires]) loadLevel(levelIndex+1);
+    else showMessage("A magical power is required.",90);
+  }
+
+  if (pressed["b"]) gameState="shop";
+  if (pressed["r"]) respawnPlayer();
+
+  if (player.attackCd>0) player.attackCd--;
+  if (player.dashCd>0) player.dashCd--;
+  if (player.invuln>0) player.invuln--;
+  if (player.maxShield>0 && player.shield<player.maxShield) player.shield=Math.min(player.maxShield,player.shield+.035);
+
+  camera.x += (player.x-canvas.width*.42-camera.x)*.08;
+  camera.x = clamp(camera.x,0,Math.max(0,world.width-canvas.width));
+}
+
+function gainPower(type) {
+  player.powers[type]=true;
+  player.flowers+=5;
+  player.damage+=8;
+  if (type==="lily") player.maxJumps=2;
+  if (type==="lotus") {player.maxShield=45;player.shield=45;}
+  if (type==="legend") {player.maxHp=180;player.hp=180;player.damage+=40;player.speed=5.3;}
+  showMessage(`${FLOWERS[type].name} acquired! ${FLOWERS[type].power}`,220);
+  spawnParticles(player.x+player.w/2,player.y+player.h/2,FLOWERS[type].color,30);
+}
+
+function hurtPlayer(amount) {
+  if (player.invuln>0 || player.dashing>0) return;
+  if (player.shield>0) {
+    const used=Math.min(amount,player.shield);
+    player.shield-=used;
+    amount-=used;
+  }
+  if (amount>0) player.hp-=amount;
+  player.invuln=50;
+  player.vy=-7;
+  player.vx=-player.facing*5;
+  spawnParticles(player.x+player.w/2,player.y+player.h/2,"#ff5a6d",15);
+  if (player.hp<=0) respawnPlayer();
+}
+
+function respawnPlayer() {
+  player.hp=player.maxHp;
+  player.shield=player.maxShield;
+  player.x=player.checkpoint.x;
+  player.y=player.checkpoint.y;
+  player.vx=player.vy=0;
+  showMessage("Returned to the last checkpoint.",100);
+}
+
+function damageEnemy(e,dmg) {
+  if (e.hitCd>0) return;
+  e.hp-=dmg;
+  e.hitCd=12;
+  e.vx*=-1;
+  spawnParticles(e.x+e.w/2,e.y+e.h/2,"#fff",8);
+  if (e.hp<=0) {
+    e.alive=false;
+    player.coins+=2;
+    player.flowers++;
+    player.damage+=.4;
+    spawnParticles(e.x+e.w/2,e.y+e.h/2,"#ffd84d",18);
+  }
+}
+
+function damageBoss(dmg) {
+  const b=world.boss;
+  if (b.hitCd>0) return;
+  b.hp-=dmg;
+  b.hitCd=8;
+  spawnParticles(b.x+b.w/2,b.y+b.h/2,"#ffe273",12);
+  if (b.hp<=0) {
+    b.alive=false;
+    gainPower("legend");
+    gameState="win";
+  }
+}
+
+function updateEnemies() {
+  if (gameState!=="playing") return;
+  const plats=[...world.platforms,...(world.moving||[])];
+  for (const e of world.enemies) {
+    if (!e.alive) continue;
+    e.hitCd=Math.max(0,e.hitCd-1);
+    e.shootCd--;
+    const dx=player.x-e.x;
+
+    if (e.type==="bee") {
+      e.y += Math.sin(performance.now()/350+e.x)*.9;
+      e.vx = Math.sign(dx)*e.speed;
+      e.x += e.vx;
+    } else {
+      if (Math.abs(dx)<420) e.vx += (Math.sign(dx)*e.speed-e.vx)*.05;
+      else if (Math.random()<.01) e.vx*=-1;
+      e.vy += .5;
+      rectMove(e,plats);
+    }
+
+    if (["thorn","storm","shadow"].includes(e.type) && Math.abs(dx)<480 && e.shootCd<=0) {
+      const dy=(player.y-e.y);
+      const mag=Math.hypot(dx,dy)||1;
+      projectiles.push({x:e.x+e.w/2,y:e.y+e.h/2,vx:dx/mag*4.5,vy:dy/mag*4.5,w:12,h:12,life:150,damage:e.damage,color:e.color,friendly:false});
+      e.shootCd=rand(75,125);
+    }
+
+    if (overlap(player,e)) hurtPlayer(e.damage);
+    if (e.y>700) e.alive=false;
+  }
+
+  if (world.boss && world.boss.alive) updateBoss(world.boss);
+}
+
+function updateBoss(b) {
+  b.hitCd=Math.max(0,(b.hitCd||0)-1);
+  b.phase = b.hp < b.maxHp*.5 ? 2 : 1;
+  b.attack--;
+  const dx=player.x-b.x;
+  b.vx += (Math.sign(dx)*(b.phase===2?2.1:1.25)-b.vx)*.04;
+  b.x += b.vx;
+  b.x=clamp(b.x,4500,4860-b.w);
+
+  if (b.attack<=0) {
+    if (Math.random()<.5) {
+      for (let i=-2;i<=2;i++) {
+        const ang=Math.atan2(player.y-b.y,player.x-b.x)+i*.16;
+        projectiles.push({x:b.x+b.w/2,y:b.y+50,vx:Math.cos(ang)*5.3,vy:Math.sin(ang)*5.3,w:16,h:16,life:180,damage:18,color:"#ffb52e",friendly:false});
+      }
+    } else {
+      for (let i=0;i<8;i++) projectiles.push({
+        x:b.x+b.w/2,y:b.y+50,vx:Math.cos(i*Math.PI/4)*4.3,vy:Math.sin(i*Math.PI/4)*4.3,
+        w:14,h:14,life:170,damage:16,color:"#ff6f3d",friendly:false
+      });
+    }
+    b.attack=b.phase===2?60:95;
+  }
+  if (overlap(player,b)) hurtPlayer(24);
+}
+
+function updateProjectiles() {
+  for (const p of projectiles) {
+    p.x+=p.vx;p.y+=p.vy;p.life--;
+    if (p.friendly) {
+      for (const e of world.enemies) if (e.alive && overlap(p,e)) {damageEnemy(e,p.damage);p.life=0;}
+      if (world.boss && world.boss.alive && overlap(p,world.boss)) {damageBoss(p.damage);p.life=0;}
+    } else if (overlap(p,player)) {
+      hurtPlayer(p.damage);p.life=0;
+    }
+  }
+  projectiles=projectiles.filter(p=>p.life>0 && p.x>-100 && p.x<world.width+100 && p.y>-200 && p.y<800);
+}
+
+function updateParticles() {
+  for (const p of particles) {p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.life--;}
+  particles=particles.filter(p=>p.life>0);
+}
+
+function updateShop() {
+  if (gameState!=="shop") return;
+  if (pressed["escape"] || pressed["b"]) gameState="playing";
+  if (pressed["1"] && player.coins>=6) {
+    player.coins-=6;player.maxHp+=20;player.hp=player.maxHp;showMessage("Bought Heart Petal: +20 max health",100);
+  }
+  if (pressed["2"] && player.coins>=8) {
+    player.coins-=8;player.damage+=6;showMessage("Bought Thorn Blade: +6 damage",100);
+  }
+  if (pressed["3"] && player.coins>=10) {
+    player.coins-=10;player.speed+=.35;showMessage("Bought Wind Boots: faster movement",100);
+  }
+}
+
+function update() {
+  updateMovingPlatforms();
+  updatePlayer();
+  updateEnemies();
+  updateProjectiles();
+  updateParticles();
+  updateShop();
+  for (const m of messages) m.frames--;
+  messages=messages.filter(m=>m.frames>0);
+  for (const k in pressed) delete pressed[k];
+}
+
+function drawBackground() {
+  const g=ctx.createLinearGradient(0,0,0,canvas.height);
+  g.addColorStop(0,world.bg[0]);g.addColorStop(1,world.bg[1]);
+  ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.globalAlpha=.22;
+  for (let i=0;i<12;i++) {
+    const x=((i*430-camera.x*.2)% (canvas.width+500))-100;
+    const y=90+(i%4)*85;
+    ctx.fillStyle="#fff";
+    ctx.beginPath();ctx.arc(x,y,45+(i%3)*18,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawWorld() {
+  ctx.save();
+  ctx.translate(-camera.x,0);
+
+  for (const p of world.platforms) drawPlatform(p);
+  for (const m of world.moving||[]) {
+    ctx.fillStyle="#86d27b";ctx.fillRect(m.x,m.y,m.w,m.h);
+    ctx.fillStyle="#4a8d4c";ctx.fillRect(m.x,m.y+m.h-5,m.w,5);
+  }
+
+  for (const h of world.hazards) {
+    ctx.fillStyle="#d94d62";
+    const spikes=Math.max(1,Math.floor(h.w/22));
+    for (let i=0;i<spikes;i++) {
+      const sx=h.x+i*h.w/spikes;
+      ctx.beginPath();ctx.moveTo(sx,h.y+h.h);ctx.lineTo(sx+h.w/spikes/2,h.y);ctx.lineTo(sx+h.w/spikes,h.y+h.h);ctx.fill();
+    }
+  }
+
+  if (world.puzzle) {
+    for (const s of world.puzzle.switches) {
+      ctx.fillStyle=s.on?"#ffe06b":"#6d5b9c";
+      ctx.fillRect(s.x,s.y,s.w,s.h);
+      ctx.fillStyle="#fff";ctx.fillRect(s.x+12,s.y-10,10,12);
+    }
+    if (!world.puzzle.gate.open) {
+      ctx.fillStyle="#3f315f";ctx.fillRect(world.puzzle.gate.x,world.puzzle.gate.y,world.puzzle.gate.w,world.puzzle.gate.h);
+      ctx.fillStyle="#c6b8f0";
+      for(let y=world.puzzle.gate.y+15;y<world.puzzle.gate.y+world.puzzle.gate.h;y+=40) ctx.fillRect(world.puzzle.gate.x+7,y,21,10);
+    }
+  }
+
+  for (const s of world.signs) {
+    ctx.fillStyle="#795331";ctx.fillRect(s.x,s.y-30,12,70);
+    ctx.fillStyle="#c89453";ctx.fillRect(s.x-25,s.y-36,85,36);
+    if (Math.abs(player.x-s.x)<80) {
+      ctx.fillStyle="rgba(0,0,0,.65)";ctx.fillRect(s.x-15,s.y-85,70,28);
+      ctx.fillStyle="#fff";ctx.font="16px Arial";ctx.fillText("E: Read",s.x-8,s.y-65);
+    }
+  }
+
+  for (const f of world.flowers) if(!f.collected) drawFlower(f);
+
+  for (const e of world.enemies) if(e.alive) drawEnemy(e);
+
+  if (world.exit) {
+    ctx.fillStyle="#6e4ba9";ctx.fillRect(world.exit.x,world.exit.y,world.exit.w,world.exit.h);
+    ctx.fillStyle="#d9c7ff";ctx.beginPath();ctx.arc(world.exit.x+27,world.exit.y+35,18,0,Math.PI*2);ctx.fill();
+  }
+
+  if (world.boss && world.boss.alive) drawBoss(world.boss);
+
+  for (const p of projectiles) {
+    ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.w/2,0,Math.PI*2);ctx.fill();
+  }
+
+  drawPlayer();
+
+  for (const p of particles) {
+    ctx.globalAlpha=clamp(p.life/30,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+function drawPlatform(p) {
+  ctx.fillStyle="#594a45";ctx.fillRect(p.x,p.y,p.w,p.h);
+  ctx.fillStyle="#5fa84f";ctx.fillRect(p.x,p.y,p.w,10);
+  ctx.fillStyle="rgba(255,255,255,.12)";ctx.fillRect(p.x+10,p.y+16,p.w-20,4);
+}
+
+function drawFlower(f) {
+  const c=f.type==="coin"?"#ffd84d":FLOWERS[f.type].color;
+  ctx.save();ctx.translate(f.x+13,f.y+13);
+  ctx.fillStyle="#4a913d";ctx.fillRect(-2,6,4,14);
+  ctx.fillStyle=c;
+  for(let i=0;i<6;i++){ctx.rotate(Math.PI/3);ctx.beginPath();ctx.ellipse(0,-8,5,9,0,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle="#fff3a0";ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawEnemy(e) {
+  ctx.fillStyle=e.color;ctx.fillRect(e.x,e.y,e.w,e.h);
+  ctx.fillStyle="#fff";ctx.fillRect(e.x+7,e.y+7,7,7);ctx.fillRect(e.x+e.w-14,e.y+7,7,7);
+  ctx.fillStyle="#111";ctx.fillRect(e.x+9,e.y+9,3,3);ctx.fillRect(e.x+e.w-12,e.y+9,3,3);
+  ctx.fillStyle="#2d2030";ctx.fillRect(e.x,e.y-9,e.w,5);
+  ctx.fillStyle="#57dc6d";ctx.fillRect(e.x,e.y-9,e.w*(e.hp/e.maxHp),5);
+}
+
+function drawBoss(b) {
+  ctx.fillStyle="#7f3d1e";ctx.fillRect(b.x,b.y,b.w,b.h);
+  ctx.fillStyle="#ffcc3a";
+  for(let i=0;i<10;i++){
+    const a=i*Math.PI/5;
+    ctx.beginPath();ctx.ellipse(b.x+b.w/2+Math.cos(a)*60,b.y+45+Math.sin(a)*55,18,35,a,0,Math.PI*2);ctx.fill();
+  }
+  ctx.fillStyle="#7c3c13";ctx.beginPath();ctx.arc(b.x+b.w/2,b.y+50,38,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#fff";ctx.fillRect(b.x+42,b.y+40,10,10);ctx.fillRect(b.x+70,b.y+40,10,10);
+}
+
+function drawPlayer() {
+  if (player.invuln>0 && Math.floor(player.invuln/4)%2===0) return;
+  ctx.save();ctx.translate(player.x+player.w/2,player.y+player.h/2);ctx.scale(player.facing,1);
+  ctx.fillStyle=player.powers.legend?"#ffe05c":"#4fd47a";
+  ctx.fillRect(-15,-20,30,40);
+  ctx.fillStyle="#f5c6a5";ctx.fillRect(-11,-30,22,15);
+  ctx.fillStyle="#2a2333";ctx.fillRect(4,-26,4,4);
+  ctx.fillStyle="#214a2e";ctx.fillRect(-13,20,10,8);ctx.fillRect(3,20,10,8);
+  if (player.powers.rose) {
+    ctx.fillStyle="#ff674f";ctx.fillRect(14,-7,18,6);
+  }
+  if (player.shield>0) {
+    ctx.globalAlpha=.35;ctx.strokeStyle="#f5efff";ctx.lineWidth=5;
+    ctx.beginPath();ctx.arc(0,0,32,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawHUD() {
+  ctx.fillStyle="rgba(13,18,35,.78)";ctx.fillRect(14,14,350,118);
+  ctx.fillStyle="#fff";ctx.font="bold 18px Arial";ctx.fillText(world.name,28,40);
+  ctx.font="14px Arial";ctx.fillText(`Flower Coins: ${player.coins}`,28,65);
+  ctx.fillText(`Flower Power: ${Math.round(player.flowers)}`,170,65);
+
+  ctx.fillStyle="#492332";ctx.fillRect(28,79,240,16);
+  ctx.fillStyle="#e84c69";ctx.fillRect(28,79,240*(player.hp/player.maxHp),16);
+  ctx.fillStyle="#fff";ctx.fillText(`HP ${Math.ceil(player.hp)}/${player.maxHp}`,275,92);
+
+  if (player.maxShield>0) {
+    ctx.fillStyle="#39365a";ctx.fillRect(28,101,240,11);
+    ctx.fillStyle="#b8a7ff";ctx.fillRect(28,101,240*(player.shield/player.maxShield),11);
+  }
+
+  const icons=["rose","lily","orchid","lotus","legend"];
+  icons.forEach((k,i)=>{
+    ctx.globalAlpha=player.powers[k]?1:.2;
+    ctx.fillStyle=FLOWERS[k].color;ctx.beginPath();ctx.arc(390+i*42,34,13,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  if (world.boss && world.boss.alive) {
+    ctx.fillStyle="rgba(0,0,0,.6)";ctx.fillRect(canvas.width/2-220,20,440,24);
+    ctx.fillStyle="#e04f3c";ctx.fillRect(canvas.width/2-215,25,430*(world.boss.hp/world.boss.maxHp),14);
+    ctx.fillStyle="#fff";ctx.textAlign="center";ctx.fillText("SUNBLOOM GUARDIAN",canvas.width/2,39);ctx.textAlign="left";
+  }
+
+  if (messages.length) {
+    const m=messages[messages.length-1];
+    ctx.font="bold 20px Arial";
+    const w=ctx.measureText(m.text).width+36;
+    ctx.fillStyle="rgba(0,0,0,.72)";ctx.fillRect(canvas.width/2-w/2,canvas.height-90,w,42);
+    ctx.fillStyle="#fff";ctx.textAlign="center";ctx.fillText(m.text,canvas.width/2,canvas.height-62);ctx.textAlign="left";
+  }
+}
+
+function drawShop() {
+  ctx.fillStyle="rgba(0,0,0,.72)";ctx.fillRect(0,0,canvas.width,canvas.height);
+  const w=560,h=370,x=canvas.width/2-w/2,y=canvas.height/2-h/2;
+  ctx.fillStyle="#26304b";ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle="#f1ca62";ctx.lineWidth=4;ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="bold 30px Arial";ctx.fillText("Flower Shop",canvas.width/2,y+50);
+  ctx.font="18px Arial";ctx.fillText(`You have ${player.coins} flower coins`,canvas.width/2,y+83);
+  ctx.textAlign="left";
+  const items=[
+    ["1","Heart Petal","+20 maximum health","6 coins"],
+    ["2","Thorn Blade","+6 attack damage","8 coins"],
+    ["3","Wind Boots","Increase movement speed","10 coins"]
+  ];
+  items.forEach((it,i)=>{
+    const iy=y+120+i*72;
+    ctx.fillStyle="#354264";ctx.fillRect(x+40,iy,w-80,55);
+    ctx.fillStyle="#ffd84d";ctx.font="bold 18px Arial";ctx.fillText(`[${it[0]}] ${it[1]}`,x+58,iy+23);
+    ctx.fillStyle="#fff";ctx.font="15px Arial";ctx.fillText(it[2],x+58,iy+44);
+    ctx.textAlign="right";ctx.fillText(it[3],x+w-58,iy+32);ctx.textAlign="left";
+  });
+  ctx.textAlign="center";ctx.fillText("Press B or Esc to leave",canvas.width/2,y+h-24);ctx.textAlign="left";
+}
+
+function drawWin() {
+  ctx.fillStyle="rgba(12,10,30,.86)";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.textAlign="center";
+  ctx.fillStyle="#ffd84d";ctx.font="bold 48px Arial";ctx.fillText("LEGENDARY FLOWER FOUND!",canvas.width/2,canvas.height/2-70);
+  ctx.fillStyle="#fff";ctx.font="24px Arial";ctx.fillText("You defeated the Sunbloom Guardian and became overpowered.",canvas.width/2,canvas.height/2-20);
+  ctx.font="20px Arial";ctx.fillText(`Final Flower Power: ${Math.round(player.flowers)} · Coins collected: ${player.coins}`,canvas.width/2,canvas.height/2+25);
+  ctx.fillText("Press R to begin the quest again.",canvas.width/2,canvas.height/2+80);
+  ctx.textAlign="left";
+  if (pressed["r"]) resetGame();
+}
+
+function draw() {
+  drawBackground();
+  drawWorld();
+  drawHUD();
+  if (gameState==="shop") drawShop();
+  if (gameState==="win") drawWin();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetGame();
+loop();
+</script>
+</body>
+</html>
