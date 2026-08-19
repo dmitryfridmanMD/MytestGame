@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resource Builder</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #182430;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    image-rendering: pixelated;
+  }
+  #ui {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    background: rgba(0,0,0,.55);
+    padding: 12px 14px;
+    border-radius: 12px;
+    line-height: 1.45;
+    user-select: none;
+    max-width: 350px;
+  }
+  #hotbar {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: rgba(0,0,0,.45);
+    padding: 8px;
+    border-radius: 12px;
+    user-select: none;
+  }
+  .slot {
+    min-width: 82px;
+    padding: 8px;
+    text-align: center;
+    background: rgba(255,255,255,.12);
+    border: 2px solid transparent;
+    border-radius: 8px;
+  }
+  .selected { border-color: #fff; background: rgba(255,255,255,.25); }
+  #message {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.55);
+    padding: 8px 14px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <b>Resource Builder</b><br>
+  Move: WASD or Arrow Keys<br>
+  Gather: Walk near a resource and press E<br>
+  Build: Left click on the grid<br>
+  Remove block: Right click<br>
+  Select material: 1, 2, 3<br>
+  Zoom: Mouse wheel<br>
+  Save/Load: P / L
+  <div id="inventory"></div>
+</div>
+
+<div id="message"></div>
+<div id="hotbar">
+  <div class="slot selected" data-slot="wood">1 — Wood</div>
+  <div class="slot" data-slot="stone">2 — Stone</div>
+  <div class="slot" data-slot="crystal">3 — Crystal</div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const inventoryEl = document.getElementById("inventory");
+const messageEl = document.getElementById("message");
+const slots = [...document.querySelectorAll(".slot")];
+
+let W = innerWidth, H = innerHeight;
+function resize() {
+  W = canvas.width = innerWidth;
+  H = canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+const TILE = 40;
+const WORLD_W = 70;
+const WORLD_H = 50;
+
+const player = {
+  x: WORLD_W * TILE / 2,
+  y: WORLD_H * TILE / 2,
+  r: 14,
+  speed: 250
+};
+
+const inventory = { wood: 12, stone: 8, crystal: 3 };
+let selected = "wood";
+let camera = { x: player.x, y: player.y, zoom: 1 };
+let keys = {};
+let structures = new Map();
+let resources = [];
+let particles = [];
+let lastTime = performance.now();
+
+const colors = {
+  grass1: "#5d9b4a",
+  grass2: "#68a953",
+  wood: "#9a5a28",
+  stone: "#777f89",
+  crystal: "#57d5e8",
+  player: "#ffd34f"
+};
+
+function randomResource() {
+  const roll = Math.random();
+  const type = roll < .48 ? "wood" : roll < .84 ? "stone" : "crystal";
+  return {
+    x: 2*TILE + Math.random() * (WORLD_W-4)*TILE,
+    y: 2*TILE + Math.random() * (WORLD_H-4)*TILE,
+    type,
+    amount: type === "crystal" ? 2 : 4,
+    active: true,
+    respawn: 0
+  };
+}
+for (let i = 0; i < 150; i++) resources.push(randomResource());
+
+function keyFor(tx, ty) { return `${tx},${ty}`; }
+
+function worldToScreen(x, y) {
+  return {
+    x: (x - camera.x) * camera.zoom + W / 2,
+    y: (y - camera.y) * camera.zoom + H / 2
+  };
+}
+function screenToWorld(x, y) {
+  return {
+    x: (x - W / 2) / camera.zoom + camera.x,
+    y: (y - H / 2) / camera.zoom + camera.y
+  };
+}
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+
+function notify(text) {
+  messageEl.textContent = text;
+  messageEl.style.opacity = 1;
+  clearTimeout(notify.t);
+  notify.t = setTimeout(() => messageEl.style.opacity = 0, 1000);
+}
+
+function updateInventory() {
+  inventoryEl.innerHTML = `<br>Wood: ${inventory.wood} &nbsp; Stone: ${inventory.stone} &nbsp; Crystal: ${inventory.crystal}`;
+  slots.forEach(s => s.classList.toggle("selected", s.dataset.slot === selected));
+}
+updateInventory();
+
+addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === "1") selected = "wood";
+  if (e.key === "2") selected = "stone";
+  if (e.key === "3") selected = "crystal";
+  if (e.key.toLowerCase() === "e") gather();
+  if (e.key.toLowerCase() === "p") saveGame();
+  if (e.key.toLowerCase() === "l") loadGame();
+  updateInventory();
+});
+addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  camera.zoom = Math.max(.55, Math.min(1.7, camera.zoom - e.deltaY * .001));
+}, {passive:false});
+
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+canvas.addEventListener("mousedown", e => {
+  const p = screenToWorld(e.clientX, e.clientY);
+  const tx = Math.floor(p.x / TILE);
+  const ty = Math.floor(p.y / TILE);
+  if (tx < 0 || ty < 0 || tx >= WORLD_W || ty >= WORLD_H) return;
+
+  const key = keyFor(tx, ty);
+  const center = {x: tx*TILE + TILE/2, y: ty*TILE + TILE/2};
+
+  if (dist(center, player) > 8*TILE) {
+    notify("Too far away to build.");
+    return;
+  }
+
+  if (e.button === 2) {
+    if (structures.has(key)) {
+      const type = structures.get(key);
+      structures.delete(key);
+      inventory[type]++;
+      burst(center.x, center.y, colors[type]);
+      notify(`Recovered 1 ${type}.`);
+      updateInventory();
+    }
+    return;
+  }
+
+  if (structures.has(key)) {
+    notify("That tile is already occupied.");
+    return;
+  }
+  if (inventory[selected] <= 0) {
+    notify(`No ${selected} left. Gather more.`);
+    return;
+  }
+  if (Math.hypot(center.x-player.x, center.y-player.y) < TILE*.7) {
+    notify("You cannot build on yourself.");
+    return;
+  }
+
+  structures.set(key, selected);
+  inventory[selected]--;
+  burst(center.x, center.y, colors[selected]);
+  updateInventory();
+});
+
+function gather() {
+  let nearest = null;
+  let nearestD = Infinity;
+  for (const r of resources) {
+    if (!r.active) continue;
+    const d = dist(player, r);
+    if (d < nearestD) { nearest = r; nearestD = d; }
+  }
+  if (!nearest || nearestD > 65) {
+    notify("Move closer to a resource.");
+    return;
+  }
+
+  inventory[nearest.type] += nearest.amount;
+  burst(nearest.x, nearest.y, colors[nearest.type], 16);
+  notify(`Collected ${nearest.amount} ${nearest.type}!`);
+  nearest.active = false;
+  nearest.respawn = 8 + Math.random()*8;
+  updateInventory();
+}
+
+function burst(x,y,color,count=8) {
+  for (let i=0;i<count;i++) {
+    particles.push({
+      x,y,
+      vx:(Math.random()-.5)*150,
+      vy:(Math.random()-.5)*150,
+      life:.6+Math.random()*.5,
+      color
+    });
+  }
+}
+
+function saveGame() {
+  const data = {
+    player,
+    inventory,
+    structures:[...structures.entries()]
+  };
+  localStorage.setItem("resourceBuilderSave", JSON.stringify(data));
+  notify("Game saved.");
+}
+function loadGame() {
+  const raw = localStorage.getItem("resourceBuilderSave");
+  if (!raw) return notify("No save found.");
+  const data = JSON.parse(raw);
+  player.x = data.player.x;
+  player.y = data.player.y;
+  Object.assign(inventory, data.inventory);
+  structures = new Map(data.structures);
+  updateInventory();
+  notify("Game loaded.");
+}
+
+function isBlocked(x,y) {
+  const samples = [
+    [x-player.r,y-player.r],[x+player.r,y-player.r],
+    [x-player.r,y+player.r],[x+player.r,y+player.r]
+  ];
+  return samples.some(([sx,sy]) => structures.has(keyFor(Math.floor(sx/TILE),Math.floor(sy/TILE))));
+}
+
+function update(dt) {
+  let dx = 0, dy = 0;
+  if (keys["a"] || keys["arrowleft"]) dx--;
+  if (keys["d"] || keys["arrowright"]) dx++;
+  if (keys["w"] || keys["arrowup"]) dy--;
+  if (keys["s"] || keys["arrowdown"]) dy++;
+
+  if (dx || dy) {
+    const len = Math.hypot(dx,dy);
+    dx /= len; dy /= len;
+    const nx = Math.max(player.r, Math.min(WORLD_W*TILE-player.r, player.x + dx*player.speed*dt));
+    const ny = Math.max(player.r, Math.min(WORLD_H*TILE-player.r, player.y + dy*player.speed*dt));
+    if (!isBlocked(nx, player.y)) player.x = nx;
+    if (!isBlocked(player.x, ny)) player.y = ny;
+  }
+
+  camera.x += (player.x-camera.x) * Math.min(1, dt*5);
+  camera.y += (player.y-camera.y) * Math.min(1, dt*5);
+
+  for (const r of resources) {
+    if (!r.active) {
+      r.respawn -= dt;
+      if (r.respawn <= 0) {
+        const n = randomResource();
+        Object.assign(r,n);
+      }
+    }
+  }
+
+  for (let i=particles.length-1;i>=0;i--) {
+    const p=particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vy += 80*dt; p.life -= dt;
+    if (p.life<=0) particles.splice(i,1);
+  }
+}
+
+function drawGround() {
+  const left = camera.x - W/(2*camera.zoom);
+  const top = camera.y - H/(2*camera.zoom);
+  const right = camera.x + W/(2*camera.zoom);
+  const bottom = camera.y + H/(2*camera.zoom);
+
+  const x0=Math.max(0,Math.floor(left/TILE));
+  const y0=Math.max(0,Math.floor(top/TILE));
+  const x1=Math.min(WORLD_W,Math.ceil(right/TILE));
+  const y1=Math.min(WORLD_H,Math.ceil(bottom/TILE));
+
+  for(let y=y0;y<y1;y++){
+    for(let x=x0;x<x1;x++){
+      const p=worldToScreen(x*TILE,y*TILE);
+      ctx.fillStyle=(x+y)%2?colors.grass1:colors.grass2;
+      ctx.fillRect(p.x,p.y,TILE*camera.zoom+1,TILE*camera.zoom+1);
+    }
+  }
+}
+
+function drawResource(r) {
+  const p=worldToScreen(r.x,r.y);
+  const z=camera.zoom;
+  if(r.type==="wood"){
+    ctx.fillStyle="#6d3f20";
+    ctx.fillRect(p.x-5*z,p.y-2*z,10*z,20*z);
+    ctx.fillStyle="#2e7d3c";
+    ctx.beginPath(); ctx.arc(p.x,p.y-11*z,17*z,0,Math.PI*2); ctx.fill();
+  } else if(r.type==="stone"){
+    ctx.fillStyle=colors.stone;
+    ctx.beginPath();
+    ctx.moveTo(p.x-16*z,p.y+12*z);
+    ctx.lineTo(p.x-11*z,p.y-10*z);
+    ctx.lineTo(p.x+6*z,p.y-16*z);
+    ctx.lineTo(p.x+17*z,p.y+8*z);
+    ctx.closePath(); ctx.fill();
+  } else {
+    ctx.fillStyle=colors.crystal;
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y-20*z);
+    ctx.lineTo(p.x+11*z,p.y);
+    ctx.lineTo(p.x,p.y+18*z);
+    ctx.lineTo(p.x-11*z,p.y);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+function drawStructures() {
+  for (const [key,type] of structures) {
+    const [tx,ty]=key.split(",").map(Number);
+    const p=worldToScreen(tx*TILE,ty*TILE);
+    const s=TILE*camera.zoom;
+    ctx.fillStyle=colors[type];
+    ctx.fillRect(p.x+2*camera.zoom,p.y+2*camera.zoom,s-4*camera.zoom,s-4*camera.zoom);
+    ctx.fillStyle="rgba(255,255,255,.18)";
+    ctx.fillRect(p.x+5*camera.zoom,p.y+5*camera.zoom,s-10*camera.zoom,6*camera.zoom);
+    ctx.strokeStyle="rgba(0,0,0,.25)";
+    ctx.strokeRect(p.x+2*camera.zoom,p.y+2*camera.zoom,s-4*camera.zoom,s-4*camera.zoom);
+  }
+}
+
+function drawPlayer() {
+  const p=worldToScreen(player.x,player.y);
+  const z=camera.zoom;
+  ctx.fillStyle="rgba(0,0,0,.25)";
+  ctx.beginPath(); ctx.ellipse(p.x,p.y+13*z,16*z,7*z,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=colors.player;
+  ctx.beginPath(); ctx.arc(p.x,p.y,player.r*z,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle="#27313a";
+  ctx.beginPath();
+  ctx.arc(p.x-5*z,p.y-3*z,2*z,0,Math.PI*2);
+  ctx.arc(p.x+5*z,p.y-3*z,2*z,0,Math.PI*2);
+  ctx.fill();
+}
+
+function drawParticles() {
+  for(const p of particles){
+    const s=worldToScreen(p.x,p.y);
+    ctx.globalAlpha=Math.max(0,p.life);
+    ctx.fillStyle=p.color;
+    ctx.fillRect(s.x,s.y,4*camera.zoom,4*camera.zoom);
+  }
+  ctx.globalAlpha=1;
+}
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  drawGround();
+
+  for(const r of resources) {
+    if(r.active) drawResource(r);
+  }
+  drawStructures();
+  drawPlayer();
+  drawParticles();
+
+  const border=worldToScreen(0,0);
+  ctx.strokeStyle="rgba(0,0,0,.5)";
+  ctx.lineWidth=4;
+  ctx.strokeRect(border.x,border.y,WORLD_W*TILE*camera.zoom,WORLD_H*TILE*camera.zoom);
+}
+
+function loop(t) {
+  const dt=Math.min(.033,(t-lastTime)/1000);
+  lastTime=t;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
